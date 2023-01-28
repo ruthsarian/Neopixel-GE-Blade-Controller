@@ -1,4 +1,4 @@
-/* Galaxy's Edge Lightsaber Compatible Neopixel Blade Controller (for Trinket M0) : v1.7
+/* Galaxy's Edge Lightsaber Compatible Neopixel Blade Controller (for Trinket M0) : v1.7.6
  * code by ruthsarian@gmail.com
  *
  * REQUIREMENTS
@@ -132,38 +132,50 @@
  *
  */
 
-#define NUM_LEDS            13    // number of LEDs in the strip
-#define MAX_BRIGHTNESS      64    // default brightness; lower value = lower current draw
-#define HILT_DATA_PIN       2     // digital pin the hilt's data line is connected to
-#define LED_DATA_PIN        4     // digital pin the LED strip is attached to
-#define LED_PWR_SWITCH_PIN  0     // this pin is held low until the blade turns on, at which point it will be pushed high
-                                  // this can be used to control a switch to connect and disconnect a battery switch; see: https://www.pololu.com/product/2811
-                                  // 
-                                  // if not using a switch, comment out this define
-//#define MIRROR_MODE             // uncomment to enable mirror mode
-                                  // mirror mode treats the strip of LEDs as a single strip, folded in half, to create the blade
-                                  // as such, when igniting both the first and last LEDs in the strip will turn on and the next in turn
-                                  // until the last LED to turn on is the one in the middle of the strip
-#define DOTSTAR_DATPIN      7     // data pin for Trinket M0's onboard DOTSTAR
-#define DOTSTAR_CLKPIN      8     // clock pin for Trinket M0's onboard DOTSTAR
-#define SLEEP_AFTER         60000 // how many ms to wait, after turning off, before going to sleep to conserve power
-                                  // sleep will also stop the COM port of your microcontroller from appearing on your computer
-                                  // set this as a large value while doing development, then lower it to 60000 or less for a
-                                  // 'production' environment.
-#define SERIAL_DEBUG_ENABLE       // enable debug messages over serial
-#define VALID_BIT_CUTOFF    4000  // any HIGH period on the data line longer than this value, in microseconds, is considered an invalid bit of data and causes a reset of the data capture
-#define VALID_BIT_ONE       1600  // any HIGH period longer than this value, in microseconds, but less than VALID_BIT_CUTOFF is treated as a valid 1 bit
-                                  // any HIGH period shorter than this value, in microseconds, is treated as a valid 0 bit
-                                  // if blade is not registering commands correctly, this value likely needs to be tweaked
-                                  // typically a 1 bit is about 2000uS (Legacy) or 2400uS (Savi) long and a 0 is 1200uS long. 
-                                  // this value is set between 2000 and 1200 to accomadate delays in timing/processing
+#define FASTLED_LED_TYPE        WS2812B // the type of LEDs being used; see: https://github.com/FastLED/FastLED/blob/master/src/FastLED.h
+#define FASTLED_RGB_ORDER       GRB     // the color order for the LEDs
+#define NUM_LEDS                288   // number of LEDs in the strip
+#define MAX_BRIGHTNESS          64    // default brightness; lower value = lower current draw
+#define HILT_DATA_PIN           2     // digital pin the hilt's data line is connected to
+#define LED_DATA_PIN            4     // digital pin the LED strip is attached to
+#define LED_PWR_SWITCH_PIN      0     // this pin is held low until the blade turns on, at which point it will be pushed high
+                                      // this can be used to control a switch to connect and disconnect a battery switch; see: https://www.pololu.com/product/2811
+                                      // 
+                                      // if not using a switch, comment out this define
+//#define MIRROR_MODE                 // uncomment to enable mirror mode
+                                      // mirror mode treats the strip of LEDs as a single strip, folded in half, to create the blade
+                                      // as such, when igniting both the first and last LEDs in the strip will turn on and the next in turn
+                                      // until the last LED to turn on is the one in the middle of the strip
+#define DOTSTAR_DATPIN          7     // data pin for Trinket M0's onboard DOTSTAR
+#define DOTSTAR_CLKPIN          8     // clock pin for Trinket M0's onboard DOTSTAR
+#define SLEEP_AFTER             60000 // how many ms to wait, after turning off, before going to sleep to conserve power
+                                      // sleep will also stop the COM port of your microcontroller from appearing on your computer
+                                      // set this as a large value while doing development, then lower it to 60000 or less for a
+                                      // 'production' environment.
+#define SERIAL_DEBUG_ENABLE           // enable debug messages over serial
+#define VALID_BIT_CUTOFF        4000  // any HIGH period on the data line longer than this value, in microseconds, is considered an invalid bit of data and causes a reset of the data capture
+#define VALID_BIT_ONE           1600  // any HIGH period longer than this value, in microseconds, but less than VALID_BIT_CUTOFF is treated as a valid 1 bit
+                                      // any HIGH period shorter than this value, in microseconds, is treated as a valid 0 bit
+                                      // if blade is not registering commands correctly, this value likely needs to be tweaked
+                                      // typically a 1 bit is about 2000uS (Legacy) or 2400uS (Savi) long and a 0 is 1200uS long. 
+                                      // this value is set between 2000 and 1200 to accomadate delays in timing/processing
+#define COLOR_MODE_CHANGE_TIME  1500  // if a blade is turned off then on again within this amount of time, then change to the next color mode
+#define COLOR_WHEEL_PAUSE_TIME  2000  // how long to hold a color before moving to the next color
+#define COLOR_WHEEL_CYCLE_STEP  16    // how many steps to jump when calculating the next color in the color cycle; a power of 2 is recommended
 
 // it appears a bug requires FASTLED_FORCE_SOFTWARE_PINS be defined for SAMD devices (like the Trinket M0)
 // in the future this may not be necessary, but for now it's left in
-#ifdef ARDUINO_ARCH_SAMD
-  #define FASTLED_FORCE_SOFTWARE_PINS   // see https://github.com/FastLED/FastLED/issues/1363; https://github.com/FastLED/FastLED/issues/1354
-#endif
+//#ifdef ARDUINO_ARCH_SAMD
+//  #define FASTLED_FORCE_SOFTWARE_PINS   // see https://github.com/FastLED/FastLED/issues/1363; https://github.com/FastLED/FastLED/issues/1354
+//#endif
+
 #include <FastLED.h>
+
+// something to help calculate values for ignition and extinguish loops
+#define   TARGET_MAX  NUM_LEDS
+#ifdef MIRROR_MODE
+  #define TARGET_MAX  (NUM_LEDS + 1) / 2
+#endif
 
 // power consumption considerations
 #ifdef ARDUINO_ARCH_AVR
@@ -250,7 +262,7 @@ CRGB color_table[][2] = {
 
 // stock lightsaber properties template
 typedef struct {
-  CRGB *color;
+  uint8_t color_index;
   blade_timing_t ignition_time;
   blade_timing_t extinguish_time_delay;
   blade_timing_t extinguish_time;
@@ -258,46 +270,46 @@ typedef struct {
 
 // savi's workshop lightsaber properties
 // timing values were taken from logic analyzer captures of a stock V2 blade controller
-stock_lightsaber_t savi_lightsaber[LIGHTSABER_TABLE_LEN] = {
-//  COLOR,                                IGNITION_TIME,    EXTINGUISH_TIME_DELAY,  EXTINGUISH_TIME
-  { color_table[INDEX_BLADE_WHITE],       TIME_ENCODE(280), TIME_ENCODE(370),       TIME_ENCODE(470)}, //  white kyber crystal
-  { color_table[INDEX_BLADE_RED],         TIME_ENCODE(280), TIME_ENCODE(940),       TIME_ENCODE(470)}, //    red kyber crystal
-  { color_table[INDEX_BLADE_ORANGE],      TIME_ENCODE(280), TIME_ENCODE(000),       TIME_ENCODE(275)}, // orange kyber crystal
-  { color_table[INDEX_BLADE_YELLOW],      TIME_ENCODE(280), TIME_ENCODE(000),       TIME_ENCODE(275)}, // yellow kyber crystal
-  { color_table[INDEX_BLADE_GREEN],       TIME_ENCODE(280), TIME_ENCODE(180),       TIME_ENCODE(470)}, //  green kyber crystal
-  { color_table[INDEX_BLADE_CYAN],        TIME_ENCODE(280), TIME_ENCODE(275),       TIME_ENCODE(565)}, //   cyan kyber crystal
-  { color_table[INDEX_BLADE_BLUE],        TIME_ENCODE(280), TIME_ENCODE(275),       TIME_ENCODE(565)}, //   blue kyber crystal
-  { color_table[INDEX_BLADE_PURPLE],      TIME_ENCODE(280), TIME_ENCODE(370),       TIME_ENCODE(660)}, // purple kyber crystal
-  { color_table[INDEX_BLADE_DARK_PURPLE], TIME_ENCODE(280), TIME_ENCODE(945),       TIME_ENCODE(470)}, //
-  { color_table[INDEX_BLADE_RED],         TIME_ENCODE(240), TIME_ENCODE(830),       TIME_ENCODE(415)}, //
-  { color_table[INDEX_BLADE_RED],         TIME_ENCODE(240), TIME_ENCODE(830),       TIME_ENCODE(415)}, //
-  { color_table[INDEX_BLADE_YELLOW],      TIME_ENCODE(240), TIME_ENCODE(000),       TIME_ENCODE(240)}, //
-  { color_table[INDEX_BLADE_GREEN],       TIME_ENCODE(240), TIME_ENCODE(160),       TIME_ENCODE(415)}, //
-  { color_table[INDEX_BLADE_RED],         TIME_ENCODE(240), TIME_ENCODE(830),       TIME_ENCODE(415)}, //
-  { color_table[INDEX_BLADE_BLUE],        TIME_ENCODE(240), TIME_ENCODE(245),       TIME_ENCODE(500)}, //
-  { color_table[INDEX_BLADE_PURPLE],      TIME_ENCODE(240), TIME_ENCODE(330),       TIME_ENCODE(545)}  //
+const stock_lightsaber_t savi_lightsaber[LIGHTSABER_TABLE_LEN] = {
+//  COLOR,                    IGNITION_TIME,    EXTINGUISH_TIME_DELAY,  EXTINGUISH_TIME
+  { INDEX_BLADE_WHITE,        TIME_ENCODE(280), TIME_ENCODE(370),       TIME_ENCODE(470)}, //  white kyber crystal
+  { INDEX_BLADE_RED,          TIME_ENCODE(280), TIME_ENCODE(940),       TIME_ENCODE(470)}, //    red kyber crystal
+  { INDEX_BLADE_ORANGE,       TIME_ENCODE(280), TIME_ENCODE(000),       TIME_ENCODE(275)}, // orange kyber crystal
+  { INDEX_BLADE_YELLOW,       TIME_ENCODE(280), TIME_ENCODE(000),       TIME_ENCODE(275)}, // yellow kyber crystal
+  { INDEX_BLADE_GREEN,        TIME_ENCODE(280), TIME_ENCODE(180),       TIME_ENCODE(470)}, //  green kyber crystal
+  { INDEX_BLADE_CYAN,         TIME_ENCODE(280), TIME_ENCODE(275),       TIME_ENCODE(565)}, //   cyan kyber crystal
+  { INDEX_BLADE_BLUE,         TIME_ENCODE(280), TIME_ENCODE(275),       TIME_ENCODE(565)}, //   blue kyber crystal
+  { INDEX_BLADE_PURPLE,       TIME_ENCODE(280), TIME_ENCODE(370),       TIME_ENCODE(660)}, // purple kyber crystal
+  { INDEX_BLADE_DARK_PURPLE,  TIME_ENCODE(280), TIME_ENCODE(945),       TIME_ENCODE(470)}, //
+  { INDEX_BLADE_RED,          TIME_ENCODE(240), TIME_ENCODE(830),       TIME_ENCODE(415)}, //
+  { INDEX_BLADE_RED,          TIME_ENCODE(240), TIME_ENCODE(830),       TIME_ENCODE(415)}, //
+  { INDEX_BLADE_YELLOW,       TIME_ENCODE(240), TIME_ENCODE(000),       TIME_ENCODE(240)}, //
+  { INDEX_BLADE_GREEN,        TIME_ENCODE(240), TIME_ENCODE(160),       TIME_ENCODE(415)}, //
+  { INDEX_BLADE_RED,          TIME_ENCODE(240), TIME_ENCODE(830),       TIME_ENCODE(415)}, //
+  { INDEX_BLADE_BLUE,         TIME_ENCODE(240), TIME_ENCODE(245),       TIME_ENCODE(500)}, //
+  { INDEX_BLADE_PURPLE,       TIME_ENCODE(240), TIME_ENCODE(330),       TIME_ENCODE(545)}  //
 };
 
 // legacy lightsaber properties
 // timing values were taken from logic analyzer captures of a stock V2 blade controller
-stock_lightsaber_t legacy_lightsaber[LIGHTSABER_TABLE_LEN] = {
-//  COLOR,                                IGNITION_TIME,    EXTINGUISH_TIME_DELAY,  EXTINGUISH_TIME
-  { color_table[INDEX_BLADE_YELLOW],      TIME_ENCODE(240), TIME_ENCODE(000),       TIME_ENCODE(325)}, // Temple Guard
-  { color_table[INDEX_BLADE_RED],         TIME_ENCODE(240), TIME_ENCODE(830),       TIME_ENCODE(335)}, // Kylo Ren
-  { color_table[INDEX_BLADE_BLUE],        TIME_ENCODE(240), TIME_ENCODE(500),       TIME_ENCODE(415)}, // Rey (Anakin), Rey Reforged, Ahsoka (CW)
-  { color_table[INDEX_BLADE_PURPLE],      TIME_ENCODE(240), TIME_ENCODE(490),       TIME_ENCODE(585)}, // Mace Windu
-  { color_table[INDEX_BLADE_RED],         TIME_ENCODE(240), TIME_ENCODE(660),       TIME_ENCODE(335)}, // Asajj Ventress
-  { color_table[INDEX_BLADE_WHITE],       TIME_ENCODE(240), TIME_ENCODE(160),       TIME_ENCODE(415)}, // Ahsoka (Rebels)
-  { color_table[INDEX_BLADE_GREEN],       TIME_ENCODE(240), TIME_ENCODE(160),       TIME_ENCODE(415)}, // Luke
-  { color_table[INDEX_BLADE_RED],         TIME_ENCODE(240), TIME_ENCODE(500),       TIME_ENCODE(500)}, // Darth Vader
-  { color_table[INDEX_BLADE_RED],         TIME_ENCODE(240), TIME_ENCODE(750),       TIME_ENCODE(330)}, // Darth Maul
-  { color_table[INDEX_BLADE_BLUE],        TIME_ENCODE(240), TIME_ENCODE(495),       TIME_ENCODE(415)}, // Obi-Wan, Ben Solo
-  { color_table[INDEX_BLADE_WHITE],       TIME_ENCODE(240), TIME_ENCODE(160),       TIME_ENCODE(415)},
-  { color_table[INDEX_BLADE_WHITE],       TIME_ENCODE(240), TIME_ENCODE(160),       TIME_ENCODE(415)},
-  { color_table[INDEX_BLADE_WHITE],       TIME_ENCODE(240), TIME_ENCODE(160),       TIME_ENCODE(415)},
-  { color_table[INDEX_BLADE_WHITE],       TIME_ENCODE(240), TIME_ENCODE(160),       TIME_ENCODE(415)},
-  { color_table[INDEX_BLADE_WHITE],       TIME_ENCODE(240), TIME_ENCODE(160),       TIME_ENCODE(415)},
-  { color_table[INDEX_BLADE_WHITE],       TIME_ENCODE(240), TIME_ENCODE(160),       TIME_ENCODE(415)}
+const stock_lightsaber_t legacy_lightsaber[LIGHTSABER_TABLE_LEN] = {
+//  COLOR,                    IGNITION_TIME,    EXTINGUISH_TIME_DELAY,  EXTINGUISH_TIME
+  { INDEX_BLADE_YELLOW,       TIME_ENCODE(240), TIME_ENCODE(000),       TIME_ENCODE(325)}, // Temple Guard
+  { INDEX_BLADE_RED,          TIME_ENCODE(240), TIME_ENCODE(830),       TIME_ENCODE(335)}, // Kylo Ren
+  { INDEX_BLADE_BLUE,         TIME_ENCODE(240), TIME_ENCODE(500),       TIME_ENCODE(415)}, // Rey (Anakin), Rey Reforged, Ahsoka (CW)
+  { INDEX_BLADE_PURPLE,       TIME_ENCODE(240), TIME_ENCODE(490),       TIME_ENCODE(585)}, // Mace Windu
+  { INDEX_BLADE_RED,          TIME_ENCODE(240), TIME_ENCODE(660),       TIME_ENCODE(335)}, // Asajj Ventress
+  { INDEX_BLADE_WHITE,        TIME_ENCODE(240), TIME_ENCODE(160),       TIME_ENCODE(415)}, // Ahsoka (Rebels)
+  { INDEX_BLADE_GREEN,        TIME_ENCODE(240), TIME_ENCODE(160),       TIME_ENCODE(415)}, // Luke
+  { INDEX_BLADE_RED,          TIME_ENCODE(240), TIME_ENCODE(500),       TIME_ENCODE(500)}, // Darth Vader
+  { INDEX_BLADE_RED,          TIME_ENCODE(240), TIME_ENCODE(750),       TIME_ENCODE(330)}, // Darth Maul
+  { INDEX_BLADE_BLUE,         TIME_ENCODE(240), TIME_ENCODE(495),       TIME_ENCODE(415)}, // Obi-Wan, Ben Solo
+  { INDEX_BLADE_WHITE,        TIME_ENCODE(240), TIME_ENCODE(160),       TIME_ENCODE(415)},
+  { INDEX_BLADE_WHITE,        TIME_ENCODE(240), TIME_ENCODE(160),       TIME_ENCODE(415)},
+  { INDEX_BLADE_WHITE,        TIME_ENCODE(240), TIME_ENCODE(160),       TIME_ENCODE(415)},
+  { INDEX_BLADE_WHITE,        TIME_ENCODE(240), TIME_ENCODE(160),       TIME_ENCODE(415)},
+  { INDEX_BLADE_WHITE,        TIME_ENCODE(240), TIME_ENCODE(160),       TIME_ENCODE(415)},
+  { INDEX_BLADE_WHITE,        TIME_ENCODE(240), TIME_ENCODE(160),       TIME_ENCODE(415)}
 };
 
 // blade states
@@ -314,11 +326,21 @@ typedef enum {
   BLADE_FLICKER_HIGH
 } state_t;
 
+// color mode
+typedef enum {
+  COLOR_MODE_STOCK,
+  COLOR_MODE_WHEEL_CYCLE,
+  COLOR_MODE_WHEEL_HOLD
+} color_mode_t;
+
 // blade properties template
 typedef struct {
   state_t state;
   uint8_t cmd;
-  stock_lightsaber_t *lightsaber;
+  const stock_lightsaber_t *lightsaber;
+  color_mode_t color_mode;
+  CRGB color;
+  CRGB color_clash;
 } blade_t;
 
 // global blade properties object
@@ -334,22 +356,54 @@ CRGB leds[NUM_LEDS];            // blade LEDs
 // it has the volatile keyword because it will be updated from within an interrupt service routine
 volatile uint8_t hilt_cmd = 0;
 
+// generate an RGB color based on an 8-bit input value
+CRGB color_by_wheel(uint8_t wheel) {
+  wheel = 255 - wheel;
+  if (wheel < 85) {
+    return(CRGB(255 - wheel * 3, 0, wheel * 3));
+  } else if (wheel < 170) {
+    wheel -= 85;
+    return(CRGB(0, wheel * 3, 255 - wheel * 3));
+  } else {
+    wheel -= 170;
+    return(CRGB(wheel * 3, 255 - wheel * 3, 0));
+  }
+}
+
 // blade_manager() takes care of changing the colors of the blade
 void blade_manager() {
   static uint32_t next_step = 0;
   static uint32_t animate_step = 0;
+  static uint32_t last_extinguish = 0;
   static state_t last_state = BLADE_UNINITIALIZED;
+  static uint8_t wheel_index = 0;
+  uint16_t target;
 
   // if there's a change of blade state there may be a need to initiate some animation effect
   if (last_state != blade.state) {
     last_state = blade.state;
-    next_step = 0;
-    animate_step = 0;
+
+    // do not allow a refresh, on, or idle state change to disrupt any potential ongoing effects
+    // although 
+    switch (blade.state) {
+      case BLADE_REFRESH:
+      case BLADE_ON:
+      case BLADE_IDLE:
+        break;
+      default:
+        next_step = 0;
+        animate_step = 0;
+        break;
+    }
 
     switch (blade.state) {
 
       // the blade is off. disable any running animations and shut the LEDs off
       case BLADE_OFF:
+        #ifdef SERIAL_DEBUG_ENABLE
+          Serial.println("Blade State Change: BLADE_OFF");
+        #endif
+
         next_step = millis() + SLEEP_AFTER;   // sleep timer
         FastLED.clear();
 
@@ -361,6 +415,45 @@ void blade_manager() {
 
       // the blade is powering on
       case BLADE_IGNITING:
+        #ifdef SERIAL_DEBUG_ENABLE
+          Serial.println("Blade State Change: BLADE_IGNITING");
+        #endif
+
+        // switch color modes if blade was off for less than COLOR_MODE_CHANGE_TIME
+        if (last_extinguish > 0 && (millis() - last_extinguish) < COLOR_MODE_CHANGE_TIME) {
+          switch (blade.color_mode) {
+            case COLOR_MODE_STOCK:
+              blade.color_mode = COLOR_MODE_WHEEL_CYCLE;
+              #ifdef SERIAL_DEBUG_ENABLE
+                Serial.println("New Color Mode: COLOR_MODE_WHEEL_CYCLE");
+              #endif
+              break;
+            case COLOR_MODE_WHEEL_CYCLE:
+              blade.color_mode = COLOR_MODE_WHEEL_HOLD;
+              #ifdef SERIAL_DEBUG_ENABLE
+                Serial.println("New Color Mode: COLOR_MODE_WHEEL_HOLD");
+              #endif
+              break;
+            default:
+              blade.color_mode = COLOR_MODE_STOCK;
+              #ifdef SERIAL_DEBUG_ENABLE
+                Serial.println("New Color Mode: COLOR_MODE_STOCK");
+              #endif
+              break;              
+          }
+        }
+
+        // set the color and clash color of the blade
+        switch (blade.color_mode) {
+          case COLOR_MODE_STOCK:
+            blade.color = color_table[blade.lightsaber->color_index][INDEX_COLOR_TABLE_COLOR];
+            blade.color_clash = color_table[blade.lightsaber->color_index][INDEX_COLOR_TABLE_CLASH];
+            break;
+          default:
+            blade.color = color_by_wheel(wheel_index);
+            blade.color_clash = CRGB_BLADE_CLASH_WHITE;   // TODO: intelligently pick a clash color; CRGB(255, 255, 255)
+            break;
+        }
 
         // connect LED battery power
         #ifdef LED_PWR_SWITCH_PIN
@@ -380,18 +473,37 @@ void blade_manager() {
       // BLADE_ON is when the blade has just finished igniting; perhaps there's something we'll want to do only 
       // under that situation, which is why BLADE_ON and BLADE_IDLE are separate things
       case BLADE_ON:
+        #ifdef SERIAL_DEBUG_ENABLE
+          Serial.println("Blade State Change: BLADE_ON");
+        #endif
+
         blade.state = BLADE_IDLE;
         break;
 
       // blade is at idle, do nothing      
       case BLADE_IDLE:
+        #ifdef SERIAL_DEBUG_ENABLE
+          Serial.println("Blade State Change: BLADE_IDLE");
+        #endif
+
+        switch (blade.color_mode) {
+          case COLOR_MODE_WHEEL_CYCLE:
+
+            if (next_step < millis()) {                         // a cheap workaround; don't touch next_step if coming out of idle. need way to identify that.
+              next_step = millis() + COLOR_WHEEL_PAUSE_TIME;
+            }
+            break;
+        }
         break;
 
       // a clash command has been sent; this happens when the blade hits something or the hilt stops suddenly
       case BLADE_CLASH:
+        #ifdef SERIAL_DEBUG_ENABLE
+          Serial.println("Blade State Change: BLADE_CLASH");
+        #endif
 
         // immediately set the blade to the clash color
-        fill_solid(leds, NUM_LEDS, blade.lightsaber->color[INDEX_COLOR_TABLE_CLASH]);
+        fill_solid(leds, NUM_LEDS, blade.color_clash);
 
         // wait 40 milliseconds and then change the blade color back to normal
         next_step = millis() + 40;
@@ -399,6 +511,11 @@ void blade_manager() {
 
       // the blade is turning off
       case BLADE_EXTINGUISHING:
+        #ifdef SERIAL_DEBUG_ENABLE
+          Serial.println("Blade State Change: BLADE_EXTINGUISHING");
+        #endif
+
+        last_extinguish = millis();
 
         // different lightsabers have different delays before the extinguish begins, so this statement sets that delay
         next_step = millis() + TIME_DECODE(blade.lightsaber->extinguish_time_delay);
@@ -408,6 +525,9 @@ void blade_manager() {
       // it should wiggle in its socket and momentarily lose connection and reset or a corrupted data command sets the blade
       // to a color other than what it should be
       case BLADE_REFRESH:
+        #ifdef SERIAL_DEBUG_ENABLE
+          Serial.println("Blade State Change: BLADE_REFRESH");
+        #endif
 
         // connect LED battery power
         #ifdef LED_PWR_SWITCH_PIN
@@ -415,7 +535,7 @@ void blade_manager() {
         #endif
 
         // set the blade color
-        fill_solid(leds, NUM_LEDS, blade.lightsaber->color[INDEX_COLOR_TABLE_COLOR]);
+        fill_solid(leds, NUM_LEDS, blade.color);
 
         // set brightness to max
         FastLED.setBrightness(MAX_BRIGHTNESS);
@@ -426,12 +546,20 @@ void blade_manager() {
 
       // low brightness flicker command; set the blade to some brightness level between 0 and 50% based on the value supplied
       case BLADE_FLICKER_LOW:
+        #ifdef SERIAL_DEBUG_ENABLE
+          Serial.println("Blade State Change: BLADE_FLICKER_LOW");
+        #endif
+
         FastLED.setBrightness((uint8_t)(((float)(blade.cmd & 0x0F)/0x0F) * (MAX_BRIGHTNESS >> 1)));
         next_step = millis() + 40;
         break;
 
       // high brightness flicker command; set the blade to some brightness level between 50 and 100% based on the value supplied
       case BLADE_FLICKER_HIGH:
+        #ifdef SERIAL_DEBUG_ENABLE
+          Serial.println("Blade State Change: BLADE_FLICKER_HIGH");
+        #endif
+
         FastLED.setBrightness((uint8_t)((1 + (float)(blade.cmd & 0x0F)/0x0F) * (MAX_BRIGHTNESS >> 1)));
         next_step = millis() + 40;
         break;
@@ -451,27 +579,22 @@ void blade_manager() {
 
       // animate the blade igniting by turning on 1 LED at a time
       case BLADE_IGNITING:
-        leds[animate_step] = blade.lightsaber->color[INDEX_COLOR_TABLE_COLOR];
-        #ifdef MIRROR_MODE
-          leds[(NUM_LEDS - 1) - animate_step] = blade.lightsaber->color[INDEX_COLOR_TABLE_COLOR];
-        #endif
 
-        animate_step++;
+        // how many LEDs should be ignited at this point in time?
+        target = ceil(((millis() - next_step)/(float)(TIME_DECODE(blade.lightsaber->ignition_time))) * NUM_LEDS);
+        if (target > TARGET_MAX) {
+            target = TARGET_MAX;
+        }
 
-        #ifdef MIRROR_MODE
-          if (animate_step >= ((NUM_LEDS + 1) / 2)) {
-            animate_step = NUM_LEDS;
-          }
-        #endif
+        // ignite those LEDs
+        for (;animate_step < target;animate_step++) {
+          leds[animate_step] = blade.color;
+          #ifdef MIRROR_MODE
+            leds[(NUM_LEDS - 1) - animate_step] = blade.color;
+          #endif
+        }
 
-        if (animate_step < NUM_LEDS) {
-
-          // time to next LED turning on is calculated based off the ignition time for this lightsaber and the number of LEDs in the blade
-          next_step = millis() + (uint16_t)(TIME_DECODE(blade.lightsaber->ignition_time) / NUM_LEDS);
-
-        // ignition squence has finished, blade is fully on
-        } else {
-
+        if (target >= TARGET_MAX) {
           next_step = 0;
           blade.state = BLADE_ON;
         }
@@ -480,39 +603,30 @@ void blade_manager() {
       // second part of the clash animation; set the blade back to its normal color
       case BLADE_CLASH:
         next_step = 0;
-        fill_solid(leds, NUM_LEDS, blade.lightsaber->color[INDEX_COLOR_TABLE_COLOR]);
+        fill_solid(leds, NUM_LEDS, blade.color);
         blade.state = BLADE_IDLE;
         break;
 
       // animate the blade extinguishing by turning off 1 LED at a time
       case BLADE_EXTINGUISHING:
 
-        #ifdef MIRROR_MODE
-          if (NUM_LEDS % 2) {
-            leds[(NUM_LEDS / 2) - animate_step] = CRGB_BLADE_OFF;
-          } else {
-            leds[(NUM_LEDS / 2) - (animate_step + 1)] = CRGB_BLADE_OFF;
-          }
-          leds[(NUM_LEDS / 2) + animate_step] = CRGB_BLADE_OFF;
-        #else
-          leds[(NUM_LEDS - 1) - animate_step] = CRGB_BLADE_OFF;
-        #endif
+        // how many LEDs should be extinguished at this point in time?
+        target = ceil(((millis() - next_step)/(float)(TIME_DECODE(blade.lightsaber->extinguish_time))) * NUM_LEDS);
+        if (target > TARGET_MAX) {
+          target = TARGET_MAX;
+        }
 
-        animate_step++;
+        // extinguish those LEDs
+        for (;animate_step < target;animate_step++) {
+          #ifdef MIRROR_MODE
+            leds[TARGET_MAX + animate_step] = CRGB_BLADE_OFF;
+            leds[TARGET_MAX - animate_step] = CRGB_BLADE_OFF;
+          #else
+            leds[(NUM_LEDS - 1) - animate_step] = CRGB_BLADE_OFF;
+          #endif
+        }
 
-        #ifdef MIRROR_MODE
-          if (animate_step >= ((NUM_LEDS + 1) / 2)) {
-            animate_step = NUM_LEDS;
-          }
-        #endif
-
-        if (animate_step < NUM_LEDS) {
-
-          // time to next LED turning off is calculated based off the extinguish time for this lightsaber and the number of LEDs in the blade
-          next_step = millis() + (uint16_t)(TIME_DECODE(blade.lightsaber->extinguish_time) / NUM_LEDS);
-
-        // extinguish squence has finished, blade is fully off
-        } else {
+        if (target >= TARGET_MAX) {
           next_step = 0;
           blade.state = BLADE_OFF;
         }
@@ -554,6 +668,24 @@ void blade_manager() {
 
         // after waking up, reset sleep timer in case blade never leaves the off state
         next_step = millis() + SLEEP_AFTER;
+        break;
+
+      case BLADE_IDLE:
+        switch (blade.color_mode) {
+          case COLOR_MODE_WHEEL_CYCLE:
+
+            wheel_index += COLOR_WHEEL_CYCLE_STEP;
+
+            #ifdef SERIAL_DEBUG_ENABLE
+              Serial.print("\nNext Color: ");
+              Serial.println(wheel_index);
+            #endif
+
+            blade.color = color_by_wheel(wheel_index);
+            fill_solid(leds, NUM_LEDS, blade.color);
+            next_step = millis() + COLOR_WHEEL_PAUSE_TIME;
+            break;
+        }
         break;
 
       default:
@@ -746,7 +878,7 @@ void setup() {
   #endif
 
   // define LED strip
-  FastLED.addLeds<WS2812B, LED_DATA_PIN, GRB>(leds, NUM_LEDS);
+  FastLED.addLeds<FASTLED_LED_TYPE, LED_DATA_PIN, FASTLED_RGB_ORDER>(leds, NUM_LEDS);
 
   // SAMD boards like the Trinket M0 need the ArduinoLowPower library to attach the interrupt to ensure the board wakes from sleep
   #ifdef ARDUINO_ARCH_SAMD
