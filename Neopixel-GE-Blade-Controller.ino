@@ -1,103 +1,37 @@
-/* Galaxy's Edge Lightsaber Compatible Neopixel Blade Controller (for Trinket M0) : v1.7.6
+/* Galaxy's Edge Lightsaber Compatible Neopixel Blade Controller : v1.8
  * code by ruthsarian@gmail.com
  *
- * REQUIREMENTS
- *
- *  Libraries required for all boards:
- *    FastLED: https://github.com/FastLED/FastLED
- *
- *  Libraries required for Trinket M0 and other SAMD boards
- *    ArduinoLowPower: https://www.arduino.cc/en/Reference/ArduinoLowPower
- *
- *  If using a DigiSpark or other ATTiny boards, use the ATTinyCore core
- *    ATTinyCore: https://github.com/SpenceKonde/ATTinyCore
- *    Will need to upload a new bootloader with 8MHz clock selected; upgrade will not work, must be via ISP
- *    https://github.com/micronucleus/micronucleus
- *
- *
  * ABOUT
- * 
- *  this project was inspired by the Dead Bothans Society's custom blade project which utilizes a Trinket M0
+ *  This code is designed to behave as a blade controller for blades containing addressable RGB LEDs (NeoPixels).
+ *  It is compatible with Galaxy's Edge lightsaber hilts. 
+ *  
+ *  It was inspired by the Dead Bothans Society's custom blade project which utilizes a Trinket M0
  *    see: https://www.deadbothans.com/2019/08/31/switching-to-m0-trinket-and-custom-connectors/
  *    see: https://www.patreon.com/deadbothans
  *    see: https://www.adafruit.com/product/3500
  * 
- *  and instructions for building a custom blade developed by Wedge on the SWGE Discord Server (swgediscord.com)
+ *  And these instructions for building a custom blade developed by Wedge from the SWGE Discord Server (swgediscord.com)
  *    see: https://1drv.ms/w/s!Asy0Vb60mZ1el7hoTX-i5ShwGGqm4Q?e=9xP2ac
  * 
- *  boards known to work with this code are listed below; other Arduino-compatible boards will likely also work
+ *  The code has been designed to work with either the FastLED or Adafruit NeoPixel libraries. 
+ *  However, FastLED is recommended.
+ *  
+ *  Boards known to work with this code are listed below, but many other boards are likely to also work.
  *   - Adafruit Trinket M0
  *   - Arduino Nano
- *   - DigiSpark
+ *   - ATTiny(8|16)06
  *
+ * REQUIREMENTS
  *
- * DIGISPARK aka TINY85 aka ATTINY85 DEV BOARD
+ *  An Addressable RGB LED Library
+ *    FastLED: https://github.com/FastLED/FastLED
+ *    Adafruit NeoPixel: https://github.com/adafruit/Adafruit_NeoPixel
  *
- *  Using a DigiSpark
- *    - The DigiSpark (and its many clones) is an ATTiny85-based board that is small and inexpensive
- *    - The Arduino core ATTinyCore will need to be installed in order to program the DigiSpark
- *      see: https://github.com/SpenceKonde/ATTinyCore
- *    - Due to the DigiSpark's bootloader, it takes too long for it to come out of sleep to catch the first ignite command.
- *      As a result a define is set (DO_NOT_SLEEP_PWR_DOWN) if an ATTiny85 is detected in order to keep the ATTiny85 out of
- *      power down sleep mode. This causes it to consume 2mA more than it would in power down mode.
- *    - If you wish to put the ATTiny85 into power down sleep mode, comment out the DO_NOT_SLEEP_PWR_DOWN define, but be
- *      aware that ignite commands will be missed. UNLESS you program your ATTiny85 without a bootloader and flash 
- *      appriate fuse values.
+ *  Trinket M0 owners using Adafruit NeoPixel should also install Adafruit DotStar
+ *    see: https://github.com/adafruit/Adafruit_DotStar
  *
- *  Programming the DigiSpark without a Bootloader
- *    0. An ISP programmer is needed. It's possible to program another Arduino with the Arduino as ISP sketch and use it as an ISP programmer.
- *       see: https://docs.arduino.cc/built-in-examples/arduino-isp/ArduinoISP/
- *    1. With ATTinyCore installed and an ISP programmer, select the appropriate board from the TOOLS menu
- *       -> Tools -> Board -> ATTinyCore -> ATTiny24/45/85 (No Bootloader)
- *    2. Under the Tools menu select the appropriate clock for the board
- *       -> Tools -> Clock -> 8 MHz (No USB)
- *    3. Attach your DigiSpark to the ISP programmer. If using an Arduino as ISP connect like this:
- *        (ISP) GND -> (DigiSpark) GND
- *        (ISP) 5V  -> (DigiSpark) 5V
- *        (ISP) D10 -> (DigiSpark) P5
- *        (ISP) D11 -> (DigiSpark) P0
- *        (ISP) D12 -> (DigiSpark) P1
- *        (ISP) D13 -> (DigiSpark) P2
- *    5. Plug in your ISP programmer (if you haven't already) and select the COM port it is attached to
- *       -> Tools -> Port -> COMx
- *    6. Select the programmer
- *       -> Tools -> Programmer -> Arduino as ISP
- *    7. Upload the sketch as you normally would
- *    8. Update the fuses on the DigiSpark to reflect the correct clock and start-up using AVRDUDE, a command-line utility bundled with the Arduino IDE
- *       -> avrdude -c stk500v1 -P COM12 -b 19200 -p attiny85 -v -U lfuse:w:0xc2:m -U hfuse:w:0xdf:m -U efuse:w:0xff:m -B 20
- *
- *  Where is AVRDUDE?
- *    1. Enable verbose output for upload within the Arduino IDE
- *       -> File -> Preferences -> Show verbose output during: -> upload (check)
- *    2. Try to upload a sketch. Scroll through output area (by default at the bottom of the Arduino IDE). 
- *       You will see references to AVRDUDE in there which should include the full path to AVRDUDE.
- *    3. As an example, on a Windows machine AVRDUDE might be installed here:
- *       %LOCALAPPDATA%\Arduino15\packages\arduino\tools\avrdude\6.3.0-arduino18\bin
- *
- *
- * ISSUES
- * 
- *  - sometimes the hilt does not switch on even if the switch is set to the on position. not currently certain what is causing this. 
- *    i suspect it's my testing setup, but i've noticed some hilts seem unaffected by this issue.
- *    some time is needed to investigate this further. 
- * 
- * 
- * NOTES
- *  
- *  Power Consumption
- *    - Trinket M0
- *      ; Trinket M0 on its own, in standby, consumes 1.2mA; removing green power LED (or its resistor) only saves about 200uA of current; probably not worth removing
- *      ; Neopixel strip, when off, consumes about 1mA per pixel. this is why a power switch of some sort to the cut power off from the LED strip is necessary
- *    - DigiSpark
- *      ; DigiSpark consumes 7mA in sleep due to onboard LED and voltage regulator
- *      ; Without power LED, 4mA; and without 78L05 regulator 1.18mA (comparable to un-modified trinket m0)
- *      ; if 78L05 is removed attach hilt power to '5V' pin not 'VIN' pin. MCU will operate at lower (hilt battery) voltage, but should still work
- *      ; Bootloader's presence on DigiSpark does not impact current draw
- *    - NeoPixels (WS2812B)
- *      ; consume about 1mA per pixel while off; 91mA w/144 pixels
- *      ; at max brightness (255), 144 pixels consume about 1.3A
- *      ; at my brightness (64), 144 pixels consume about 500mA
- *
+ *  Trinket M0 and other SAMD boards should also install ArduinoLowPower
+ *    ArduinoLowPower: https://www.arduino.cc/en/Reference/ArduinoLowPower
  *
  * REFERENCES
  *
@@ -111,70 +45,138 @@
  *    - https://www.electro-tech-online.com/articles/achieving-low-power-on-adafruit-trinket.830/
  *    - https://forum.arduino.cc/t/mkr-zero-board-sleep-mode/551283/5
  *    - https://forum.arduino.cc/t/question-on-the-arduino-zero-sleep-mode/324112/3
+ *    
+ *  ATTiny(8|16)06
+ *    - Datasheet: http://ww1.microchip.com/downloads/en/DeviceDoc/ATtiny806_1606_Data_Sheet_40002029A.pdf
+ *    - Pinout Reference: https://github.com/SpenceKonde/megaTinyCore/blob/master/megaavr/extras/ATtiny_x06.gif
+ * 
+ * NOTES
+ *  
+ *  Power Consumption
+ *    - Trinket M0
+ *      ; Trinket M0 on its own, in standby, consumes 1.2mA; removing green power LED (or its resistor) only saves about 200uA of current; probably not worth removing
+ *      ; Neopixel strip, when off, consumes about 1mA per pixel. this is why a power switch of some sort to the cut power off from the LED strip is necessary
+ *    - NeoPixels (WS2812B)
+ *      ; consume about 1mA per pixel while off; 91mA w/144 pixels
+ *      ; at max brightness (255), 144 pixels consume about 1.3A
+ *      ; at my brightness (64), 144 pixels consume about 500mA
  *
- *  DIGISPARK
- *    - ATTiny85 Datasheet: https://ww1.microchip.com/downloads/en/DeviceDoc/Atmel-2586-AVR-8-bit-Microcontroller-ATtiny25-ATtiny45-ATtiny85_Datasheet.pdf
- *    - Schematic: https://s3.amazonaws.com/digistump-resources/files/97a1bb28_DigisparkSchematic.pdf
- *    - Pinout: https://static.ericdraken.com/files/attiny85-pinout.png
- *    - Fuse Calculator: https://wwe2w.engbedded.com/fusecalc/
- *    - Fuse Resetting: https://ericdraken.com/hvsp/
- *
- *  MICRONUCLEUS BOOTLOADER
- *    - https://github.com/micronucleus/micronucleus
- *    - Upgrading Micronucleus: https://koen.vervloesem.eu/blog/how-to-upgrade-the-micronucleus-bootloader-on-the-digispark/
- *    - MSYS2: https://www.msys2.org/
- *      ; pacman -S --needed base-devel mingw-w64-x86_64-toolchain mingw-w64-x86_64-libusb-win32 mingw-w64-x86_64-avr-toolchain mingw-w64-x86_64-avrdude git
- *
- *  AVRDUDE
- *    Write Firmware: avrdude -c stk500v1 -P COM10 -b 19200 -p attiny85 -v -U flash:w:t85_default.hex
- *    Read Fuses:     avrdude -c stk500v1 -P COM10 -b 19200 -p attiny85 -v -U lfuse:r:-:i -U hfuse:r:-:i -U efuse:r:-:i
- *    Write Fuses:    avrdude -c stk500v1 -P COM12 -b 19200 -p attiny85 -v -U lfuse:w:0xc2:m -U hfuse:w:0xdf:m -U efuse:w:0xff:m -B 20
+ *  ATTinyX06 / tinyNeoPixel Limitations
+ *    Limited resources of the ATTinyX06s cause longer strands of LEDs to not ignite.
+ *    If your X06-based device is not igniting LEDs, change NUM_LEDS to a very small value (10) and
+ *    try again. If it works with 10, then this is your problem. AAdjust NUM_LEDs until it works.
+ *    
+ *  ATTinyX06 VQFN20 Pinout Notes
+ *    0 = PA4 = PIN 5
+ *    2 = PA6 = PIN 7
+ *    4 = PB5 = PIN 9
  *
  */
 
-#define FASTLED_LED_TYPE        WS2812B // the type of LEDs being used; see: https://github.com/FastLED/FastLED/blob/master/src/FastLED.h
+#define ADAFRUIT_LED_TYPE       NEO_GRB+NEO_KHZ800  // define the NeoPixel type to use with the Adafruit NeoPixel library.
+                                                    // if you are NOT using the NeoPixel library then you can ignore this.
+                                                    // see: https://adafruit.github.io/Adafruit_NeoPixel/html/class_adafruit___neo_pixel.html
+
+#define FASTLED_LED_TYPE        WS2812B // define the type of LED used with the FastLED library
+                                        // if you are NOT using the FastLED library then you can ignore this
+                                        // see: https://github.com/FastLED/FastLED/blob/master/src/FastLED.h
 #define FASTLED_RGB_ORDER       GRB     // the color order for the LEDs
-#define NUM_LEDS                288   // number of LEDs in the strip
-#define MAX_BRIGHTNESS          64    // default brightness; lower value = lower current draw
-#define HILT_DATA_PIN           2     // digital pin the hilt's data line is connected to
-#define LED_DATA_PIN            4     // digital pin the LED strip is attached to
-#define LED_PWR_SWITCH_PIN      0     // this pin is held low until the blade turns on, at which point it will be pushed high
-                                      // this can be used to control a switch to connect and disconnect a battery switch; see: https://www.pololu.com/product/2811
-                                      // 
-                                      // if not using a switch, comment out this define
-//#define MIRROR_MODE                 // uncomment to enable mirror mode
-                                      // mirror mode treats the strip of LEDs as a single strip, folded in half, to create the blade
-                                      // as such, when igniting both the first and last LEDs in the strip will turn on and the next in turn
-                                      // until the last LED to turn on is the one in the middle of the strip
-#define DOTSTAR_DATPIN          7     // data pin for Trinket M0's onboard DOTSTAR
-#define DOTSTAR_CLKPIN          8     // clock pin for Trinket M0's onboard DOTSTAR
-#define SLEEP_AFTER             60000 // how many ms to wait, after turning off, before going to sleep to conserve power
-                                      // sleep will also stop the COM port of your microcontroller from appearing on your computer
-                                      // set this as a large value while doing development, then lower it to 60000 or less for a
-                                      // 'production' environment.
-#define SERIAL_DEBUG_ENABLE           // enable debug messages over serial
-#define VALID_BIT_CUTOFF        4000  // any HIGH period on the data line longer than this value, in microseconds, is considered an invalid bit of data and causes a reset of the data capture
-#define VALID_BIT_ONE           1600  // any HIGH period longer than this value, in microseconds, but less than VALID_BIT_CUTOFF is treated as a valid 1 bit
-                                      // any HIGH period shorter than this value, in microseconds, is treated as a valid 0 bit
-                                      // if blade is not registering commands correctly, this value likely needs to be tweaked
-                                      // typically a 1 bit is about 2000uS (Legacy) or 2400uS (Savi) long and a 0 is 1200uS long. 
-                                      // this value is set between 2000 and 1200 to accomadate delays in timing/processing
-#define COLOR_MODE_CHANGE_TIME  1500  // if a blade is turned off then on again within this amount of time, then change to the next color mode
-#define COLOR_WHEEL_PAUSE_TIME  2000  // how long to hold a color before moving to the next color
-#define COLOR_WHEEL_CYCLE_STEP  16    // how many steps to jump when calculating the next color in the color cycle; a power of 2 is recommended
+                                        // if you are NOT using the FastLED library then you can ignore this
 
-// it appears a bug requires FASTLED_FORCE_SOFTWARE_PINS be defined for SAMD devices (like the Trinket M0)
-// in the future this may not be necessary, but for now it's left in
-//#ifdef ARDUINO_ARCH_SAMD
-//  #define FASTLED_FORCE_SOFTWARE_PINS   // see https://github.com/FastLED/FastLED/issues/1363; https://github.com/FastLED/FastLED/issues/1354
-//#endif
+#define NUM_LEDS                58      // number of LEDs in the strip; MAX: 806:58, 1606:227
+#define MAX_BRIGHTNESS          64      // default brightness; lower value = lower current draw
+#define HILT_DATA_PIN           2       // digital pin the hilt's data line is connected to
+#define LED_DATA_PIN            4       // digital pin the LED strip is attached to
+#define LED_PWR_SWITCH_PIN      0       // this pin is held low until the blade turns on, at which point it will be pushed high
+                                        // this can be used to control a switch to connect and disconnect a battery switch; see: https://www.pololu.com/product/2811
+                                        // 
+                                        // if not using a switch, comment out this define
+//#define MIRROR_MODE                   // uncomment to enable mirror mode
+                                        // mirror mode treats the strip of LEDs as a single strip, folded in half, to create the blade
+                                        // as such, when igniting both the first and last LEDs in the strip will turn on and the next in turn
+                                        // until the last LED to turn on is the one in the middle of the strip
+#define SLEEP_AFTER             60000   // how many ms to wait, after turning off, before going to sleep to conserve power
+                                        // sleep will also stop the COM port of your microcontroller from appearing on your computer
+                                        // set this as a large value while doing development, then lower it to 60000 or less for a
+                                        // 'production' environment.
+#define SERIAL_DEBUG_ENABLE             // enable debug messages over serial
+#define VALID_BIT_CUTOFF        4000    // any HIGH period on the data line longer than this value, in microseconds, is considered an invalid bit of data and causes a reset of the data capture
+#define VALID_BIT_ONE           1600    // any HIGH period longer than this value, in microseconds, but less than VALID_BIT_CUTOFF is treated as a valid 1 bit
+                                        // any HIGH period shorter than this value, in microseconds, is treated as a valid 0 bit
+                                        // if blade is not registering commands correctly, this value likely needs to be tweaked
+                                        // typically a 1 bit is about 2000uS (Legacy) or 2400uS (Savi) long and a 0 is 1200uS long. 
+                                        // this value is set between 2000 and 1200 to accomadate delays in timing/processing
+#define COLOR_MODE_CHANGE_TIME  1500    // if a blade is turned off then on again within this amount of time, then change to the next color mode
+#define COLOR_WHEEL_PAUSE_TIME  2000    // how long to hold a color before moving to the next color
+#define COLOR_WHEEL_CYCLE_STEP  16      // how many steps to jump when calculating the next color in the color cycle; a power of 2 is recommended
+//#define USE_ADAFRUIT_NEOPIXEL         // uncomment to use the Adafruit NeoPixel library instead of FastLED; THERE IS NO REASON TO DO THIS ... unless there is
 
-#include <FastLED.h>
+// megaTinyCore does not support FastLED, however it does come with its own version of
+// the Adafruit NeoPixel library. 
+// see: https://github.com/SpenceKonde/megaTinyCore/tree/master/megaavr/libraries/tinyNeoPixel
+//
+// since i'm adding support for tinyNeoPixel, I might as well add Adafruit NeoPixel
+// support since they share the same API.
+//
+// to make the code LED library agnostic (ish), i'll use the macros defined below to control LEDs
+//
+#if defined(MEGATINYCORE) || defined(USE_ADAFRUIT_NEOPIXEL)
+  #define LEDLIB_ADAFRUIT_NEOPIXEL
+  #define LED_OBJ             leds
+  #define LED_RGB             LED_OBJ.Color
+  #define LED_RGB_TYPE        uint32_t
+  #define LED_SET_PIXEL(n, c) LED_OBJ.setPixelColor(n, c)     // n = pixel number, c = color
+  #define LED_FILL(c)         LED_OBJ.fill(c)                 // c = color
+  #define LED_FILL_N(c, s, n) LED_OBJ.fill(c, s, n)           // c = color, s = starting LED, n = number of LEDs to fill
+
+  // must use tinyNeoPixel for megaTinyCore
+  #ifdef MEGATINYCORE
+    #include <tinyNeoPixel.h>
+    tinyNeoPixel LED_OBJ = tinyNeoPixel(NUM_LEDS, LED_DATA_PIN, ADAFRUIT_LED_TYPE);
+
+  // otherwise use the Adafruit NeoPixel library
+  #else
+    #include <Adafruit_NeoPixel.h>
+    Adafruit_NeoPixel LED_OBJ = Adafruit_NeoPixel(NUM_LEDS, LED_DATA_PIN, ADAFRUIT_LED_TYPE);
+
+    // Trinket M0 users also need the Adafruit DotStar library in order to turn off the on-board
+    // DotStart LED (thus saving a few mA of power consumption)
+    #ifdef ADAFRUIT_TRINKET_M0
+      #include <Adafruit_DotStar.h>
+      Adafruit_DotStar dotstar = Adafruit_DotStar(1, INTERNAL_DS_DATA, INTERNAL_DS_CLK, DOTSTAR_BGR);
+    #endif
+  #endif
+
+// If not using Adafruit NeoPixel or tinyNeoPixel then use FastLED.
+#else
+  #include <FastLED.h>
+  #define LEDLIB_FASTLED
+  #define LED_OBJ             FastLED
+  #define LED_RGB             CRGB
+  #define LED_RGB_TYPE        CRGB
+  #define LED_SET_PIXEL(n, c) leds[n] = c
+  #define LED_FILL(c)         fill_solid(leds, NUM_LEDS, c)
+
+  // Trinket M0 users also need a DotStar object defined to turn off the on-board DotStar LED.
+  #ifdef ADAFRUIT_TRINKET_M0
+    LED_RGB_TYPE dotstar;       // Trinket M0 dotstar LED
+  #endif
+  LED_RGB_TYPE leds[NUM_LEDS];  // blade LEDs
+#endif
 
 // something to help calculate values for ignition and extinguish loops
-#define   TARGET_MAX  NUM_LEDS
 #ifdef MIRROR_MODE
-  #define TARGET_MAX  (NUM_LEDS + 1) / 2
+  #define TARGET_MAX ((NUM_LEDS + 1) / 2)
+#else
+  #define TARGET_MAX NUM_LEDS
+#endif
+
+// Adafruit_NeoPixel halts the millis() counter while executing; this slows ignition and extinguish considerably.
+// Use this value to compensate for the lost millis() time
+#ifdef MEGATINYCORE
+  #define ADAFRUIT_ADJUST   (TARGET_MAX >> 5)
+#else
+  #define ADAFRUIT_ADJUST   (TARGET_MAX >> 4)
 #endif
 
 // power consumption considerations
@@ -187,14 +189,7 @@
 #endif
 
 // program space considerations
-#ifdef ARDUINO_AVR_ATTINYX5
-
-  // if defined, ATTiny (digispark) will not use the power down sleep mode
-  // this will cause it to consume an additional 2mA in sleep mode, however it will not miss the 
-  // ignite command when waking from sleep
-  //
-  // if trying to minimize power consumption, comment this out
-  #define DO_NOT_SLEEP_PWR_DOWN
+#if defined(ARDUINO_AVR_ATtiny806) || defined(ARDUINO_AVR_ATtiny1606)
 
   // defining SPACE_SAVER will enable some space-saving steps within the code to help it fit into smaller program space areas
   #define SPACE_SAVER
@@ -211,25 +206,25 @@
   #define TIME_DECODE(t)  (uint16_t)(t << 2)
   typedef uint8_t blade_timing_t;
 #else
-  #define TIME_ENCODE(t)  t
-  #define TIME_DECODE(t)  t
+  #define TIME_ENCODE(t)  (uint16_t)t
+  #define TIME_DECODE(t)  (uint16_t)t
   typedef uint16_t blade_timing_t;
 #endif
 
 // stock blade colors; these values are based on PWM duty cycles measured from a stock blade controller
-#define CRGB_BLADE_WHITE         CRGB(102, 102, 102)
-#define CRGB_BLADE_RED           CRGB(255,   0,   0)
-#define CRGB_BLADE_ORANGE        CRGB(231,  77,   0)
-#define CRGB_BLADE_YELLOW        CRGB(154, 154,   0)
-#define CRGB_BLADE_GREEN         CRGB(  0, 255,   0)
-#define CRGB_BLADE_CYAN          CRGB(  0, 154, 154)
-#define CRGB_BLADE_BLUE          CRGB(  0,   0, 255)
-#define CRGB_BLADE_PURPLE        CRGB(154,   0, 154)
-#define CRGB_BLADE_DARK_PURPLE   CRGB( 26,   0,  13)
-#define CRGB_BLADE_CLASH_YELLOW  CRGB(255, 255,   0)
-#define CRGB_BLADE_CLASH_ORANGE  CRGB(255,  64,   0)
-#define CRGB_BLADE_CLASH_WHITE   CRGB(128, 128, 128)
-#define CRGB_BLADE_OFF           CRGB(  0,   0,   0)
+#define RGB_BLADE_WHITE         LED_RGB(102, 102, 102)
+#define RGB_BLADE_RED           LED_RGB(255,   0,   0)
+#define RGB_BLADE_ORANGE        LED_RGB(231,  77,   0)
+#define RGB_BLADE_YELLOW        LED_RGB(154, 154,   0)
+#define RGB_BLADE_GREEN         LED_RGB(  0, 255,   0)
+#define RGB_BLADE_CYAN          LED_RGB(  0, 154, 154)
+#define RGB_BLADE_BLUE          LED_RGB(  0,   0, 255)
+#define RGB_BLADE_PURPLE        LED_RGB(154,   0, 154)
+#define RGB_BLADE_DARK_PURPLE   LED_RGB( 26,   0,  13)
+#define RGB_BLADE_CLASH_YELLOW  LED_RGB(255, 255,   0)
+#define RGB_BLADE_CLASH_ORANGE  LED_RGB(255,  64,   0)
+#define RGB_BLADE_CLASH_WHITE   LED_RGB(128, 128, 128)
+#define RGB_BLADE_OFF           LED_RGB(  0,   0,   0)
 
 // how many lightsabers per lightsaber table
 #define LIGHTSABER_TABLE_LEN    16
@@ -248,16 +243,16 @@
 #define INDEX_COLOR_TABLE_CLASH 1
 
 // all possible stock blade colors and their corresponding clash color
-CRGB color_table[][2] = {
-  {CRGB_BLADE_WHITE,        CRGB_BLADE_CLASH_YELLOW},
-  {CRGB_BLADE_RED,          CRGB_BLADE_CLASH_ORANGE},
-  {CRGB_BLADE_ORANGE,       CRGB_BLADE_CLASH_WHITE},
-  {CRGB_BLADE_YELLOW,       CRGB_BLADE_CLASH_WHITE},
-  {CRGB_BLADE_GREEN,        CRGB_BLADE_CLASH_YELLOW},
-  {CRGB_BLADE_CYAN,         CRGB_BLADE_CLASH_YELLOW},
-  {CRGB_BLADE_BLUE,         CRGB_BLADE_CLASH_YELLOW},
-  {CRGB_BLADE_PURPLE,       CRGB_BLADE_CLASH_YELLOW},
-  {CRGB_BLADE_DARK_PURPLE,  CRGB_BLADE_CLASH_ORANGE}
+const LED_RGB_TYPE color_table[][2] = {
+  {RGB_BLADE_WHITE,        RGB_BLADE_CLASH_YELLOW},
+  {RGB_BLADE_RED,          RGB_BLADE_CLASH_ORANGE},
+  {RGB_BLADE_ORANGE,       RGB_BLADE_CLASH_WHITE},
+  {RGB_BLADE_YELLOW,       RGB_BLADE_CLASH_WHITE},
+  {RGB_BLADE_GREEN,        RGB_BLADE_CLASH_YELLOW},
+  {RGB_BLADE_CYAN,         RGB_BLADE_CLASH_YELLOW},
+  {RGB_BLADE_BLUE,         RGB_BLADE_CLASH_YELLOW},
+  {RGB_BLADE_PURPLE,       RGB_BLADE_CLASH_YELLOW},
+  {RGB_BLADE_DARK_PURPLE,  RGB_BLADE_CLASH_ORANGE}
 };
 
 // stock lightsaber properties template
@@ -339,38 +334,35 @@ typedef struct {
   uint8_t cmd;
   const stock_lightsaber_t *lightsaber;
   color_mode_t color_mode;
-  CRGB color;
-  CRGB color_clash;
+  LED_RGB_TYPE color;
+  LED_RGB_TYPE color_clash;
 } blade_t;
 
 // global blade properties object
 blade_t blade;
-
-// led arrays used by FastLED
-#ifdef ADAFRUIT_TRINKET_M0
-  CRGB dotstar;                 // Trinket M0 dotstar LED
-#endif
-CRGB leds[NUM_LEDS];            // blade LEDs
 
 // global variable where decoded hilt command is stored
 // it has the volatile keyword because it will be updated from within an interrupt service routine
 volatile uint8_t hilt_cmd = 0;
 
 // generate an RGB color based on an 8-bit input value
-CRGB color_by_wheel(uint8_t wheel) {
+LED_RGB_TYPE color_by_wheel(uint8_t wheel) {
   wheel = 255 - wheel;
   if (wheel < 85) {
-    return(CRGB(255 - wheel * 3, 0, wheel * 3));
+    return(LED_RGB(255 - wheel * 3, 0, wheel * 3));
   } else if (wheel < 170) {
     wheel -= 85;
-    return(CRGB(0, wheel * 3, 255 - wheel * 3));
+    return(LED_RGB(0, wheel * 3, 255 - wheel * 3));
   } else {
     wheel -= 170;
-    return(CRGB(wheel * 3, 255 - wheel * 3, 0));
+    return(LED_RGB(wheel * 3, 255 - wheel * 3, 0));
   }
 }
 
 // blade_manager() takes care of changing the colors of the blade
+//
+// if you're looking to add custom blade behaviors then this function is likely
+// where you want to make your changes.
 void blade_manager() {
   static uint32_t next_step = 0;
   static uint32_t animate_step = 0;
@@ -379,12 +371,16 @@ void blade_manager() {
   static uint8_t wheel_index = 0;
   uint16_t target;
 
-  // if there's a change of blade state there may be a need to initiate some animation effect
+  //
+  // ** BLADE MANAGER STAGE ONE : NEW STATE INITIALIZATION **
+  //
+  // The blade has changed states. In this section of code any initialization needed for the new
+  // blade state is handled.
+  //
   if (last_state != blade.state) {
     last_state = blade.state;
 
     // do not allow a refresh, on, or idle state change to disrupt any potential ongoing effects
-    // although 
     switch (blade.state) {
       case BLADE_REFRESH:
       case BLADE_ON:
@@ -401,11 +397,20 @@ void blade_manager() {
       // the blade is off. disable any running animations and shut the LEDs off
       case BLADE_OFF:
         #ifdef SERIAL_DEBUG_ENABLE
-          Serial.println("Blade State Change: BLADE_OFF");
+          Serial.println(F("Blade State Change: BLADE_OFF"));
         #endif
 
-        next_step = millis() + SLEEP_AFTER;   // sleep timer
-        FastLED.clear();
+        // set the point when the blade controller should go to sleep
+        next_step = millis() + SLEEP_AFTER;
+
+        // turn the LEDs off
+        LED_OBJ.clear();
+        LED_OBJ.show();     // unnecessary since the next step is to cut power to the LEDs
+                            // i'm leaving this line in because my test environment will sometimes
+                            // involve keeping the LEDs always powered
+                            //
+                            // and someone may have their pololu switch set to ON thus negating
+                            // the whole purpose of the power switch to begin with.
 
         // disconnect power to the LEDs
         #ifdef LED_PWR_SWITCH_PIN
@@ -416,42 +421,55 @@ void blade_manager() {
       // the blade is powering on
       case BLADE_IGNITING:
         #ifdef SERIAL_DEBUG_ENABLE
-          Serial.println("Blade State Change: BLADE_IGNITING");
+          Serial.println(F("Blade State Change: BLADE_IGNITING"));
         #endif
 
         // switch color modes if blade was off for less than COLOR_MODE_CHANGE_TIME
         if (last_extinguish > 0 && (millis() - last_extinguish) < COLOR_MODE_CHANGE_TIME) {
+
+          // the color mode we move to next is based on the current color mode
           switch (blade.color_mode) {
+
             case COLOR_MODE_STOCK:
+              #ifdef SERIAL_DEBUG_ENABLE
+                Serial.println(F("New Color Mode: COLOR_MODE_WHEEL_CYCLE"));
+              #endif
+
               blade.color_mode = COLOR_MODE_WHEEL_CYCLE;
-              #ifdef SERIAL_DEBUG_ENABLE
-                Serial.println("New Color Mode: COLOR_MODE_WHEEL_CYCLE");
-              #endif
               break;
+
             case COLOR_MODE_WHEEL_CYCLE:
+              #ifdef SERIAL_DEBUG_ENABLE
+                Serial.println(F("New Color Mode: COLOR_MODE_WHEEL_HOLD"));
+              #endif
+
               blade.color_mode = COLOR_MODE_WHEEL_HOLD;
-              #ifdef SERIAL_DEBUG_ENABLE
-                Serial.println("New Color Mode: COLOR_MODE_WHEEL_HOLD");
-              #endif
               break;
+
             default:
-              blade.color_mode = COLOR_MODE_STOCK;
               #ifdef SERIAL_DEBUG_ENABLE
-                Serial.println("New Color Mode: COLOR_MODE_STOCK");
+                Serial.println(F("New Color Mode: COLOR_MODE_STOCK"));
               #endif
+
+              blade.color_mode = COLOR_MODE_STOCK;
               break;              
           }
         }
 
-        // set the color and clash color of the blade
+        // set the color and clash color of the blade based on the current color mode
         switch (blade.color_mode) {
-          case COLOR_MODE_STOCK:
+
+          // wheel color is based on wheel_index
+          case COLOR_MODE_WHEEL_CYCLE:
+          case COLOR_MODE_WHEEL_HOLD:
+            blade.color = color_by_wheel(wheel_index);
+            blade.color_clash = RGB_BLADE_CLASH_WHITE;   // TODO: intelligently pick a clash color; CRGB(255, 255, 255)
+            break;
+
+          // in all other instances, use the stock blade color
+          default:
             blade.color = color_table[blade.lightsaber->color_index][INDEX_COLOR_TABLE_COLOR];
             blade.color_clash = color_table[blade.lightsaber->color_index][INDEX_COLOR_TABLE_CLASH];
-            break;
-          default:
-            blade.color = color_by_wheel(wheel_index);
-            blade.color_clash = CRGB_BLADE_CLASH_WHITE;   // TODO: intelligently pick a clash color; CRGB(255, 255, 255)
             break;
         }
 
@@ -461,10 +479,10 @@ void blade_manager() {
         #endif
 
         // clear the LEDs immediately after they are powered on via LED_PWR_SWITCH_PIN
-        FastLED.clear();
+        LED_OBJ.clear();
 
         // set the brightness for the blade
-        FastLED.setBrightness(MAX_BRIGHTNESS);
+        LED_OBJ.setBrightness(MAX_BRIGHTNESS);
 
         // delay ignition based on whatever value is stored in the lightsaber's properties
         next_step = millis();
@@ -473,23 +491,24 @@ void blade_manager() {
       // BLADE_ON is when the blade has just finished igniting; perhaps there's something we'll want to do only 
       // under that situation, which is why BLADE_ON and BLADE_IDLE are separate things
       case BLADE_ON:
-        #ifdef SERIAL_DEBUG_ENABLE
-          Serial.println("Blade State Change: BLADE_ON");
-        #endif
-
         blade.state = BLADE_IDLE;
         break;
 
-      // blade is at idle, do nothing      
+      // blade is at idle
       case BLADE_IDLE:
         #ifdef SERIAL_DEBUG_ENABLE
-          Serial.println("Blade State Change: BLADE_IDLE");
+          Serial.println(F("Blade State Change: BLADE_IDLE"));
         #endif
 
+        // some color modes may want to do something while the blade is idling
         switch (blade.color_mode) {
-          case COLOR_MODE_WHEEL_CYCLE:
 
-            if (next_step < millis()) {                         // a cheap workaround; don't touch next_step if coming out of idle. need way to identify that.
+          // in color wheel cycle mode, cycle through colors in the wheel every COLOR_WHEEL_PAUSE_TIME milliseconds
+          //
+          // at this point, it's possible we're entering an IDLE state after a blade refresh, in which case we don't
+          // want to touch next_step; only set next_step if it has a value less than the current time in ms
+          case COLOR_MODE_WHEEL_CYCLE:
+            if (next_step < millis()) {
               next_step = millis() + COLOR_WHEEL_PAUSE_TIME;
             }
             break;
@@ -499,11 +518,11 @@ void blade_manager() {
       // a clash command has been sent; this happens when the blade hits something or the hilt stops suddenly
       case BLADE_CLASH:
         #ifdef SERIAL_DEBUG_ENABLE
-          Serial.println("Blade State Change: BLADE_CLASH");
+          Serial.println(F("Blade State Change: BLADE_CLASH"));
         #endif
 
         // immediately set the blade to the clash color
-        fill_solid(leds, NUM_LEDS, blade.color_clash);
+        LED_FILL(blade.color_clash);
 
         // wait 40 milliseconds and then change the blade color back to normal
         next_step = millis() + 40;
@@ -512,7 +531,7 @@ void blade_manager() {
       // the blade is turning off
       case BLADE_EXTINGUISHING:
         #ifdef SERIAL_DEBUG_ENABLE
-          Serial.println("Blade State Change: BLADE_EXTINGUISHING");
+          Serial.println(F("Blade State Change: BLADE_EXTINGUISHING"));
         #endif
 
         last_extinguish = millis();
@@ -526,7 +545,7 @@ void blade_manager() {
       // to a color other than what it should be
       case BLADE_REFRESH:
         #ifdef SERIAL_DEBUG_ENABLE
-          Serial.println("Blade State Change: BLADE_REFRESH");
+          Serial.println(F("Blade State Change: BLADE_REFRESH"));
         #endif
 
         // connect LED battery power
@@ -535,10 +554,10 @@ void blade_manager() {
         #endif
 
         // set the blade color
-        fill_solid(leds, NUM_LEDS, blade.color);
+        LED_FILL(blade.color);
 
         // set brightness to max
-        FastLED.setBrightness(MAX_BRIGHTNESS);
+        LED_OBJ.setBrightness(MAX_BRIGHTNESS);
 
         // change state to on
         blade.state = BLADE_ON;
@@ -547,20 +566,20 @@ void blade_manager() {
       // low brightness flicker command; set the blade to some brightness level between 0 and 50% based on the value supplied
       case BLADE_FLICKER_LOW:
         #ifdef SERIAL_DEBUG_ENABLE
-          Serial.println("Blade State Change: BLADE_FLICKER_LOW");
+          Serial.println(F("Blade State Change: BLADE_FLICKER_LOW"));
         #endif
 
-        FastLED.setBrightness((uint8_t)(((float)(blade.cmd & 0x0F)/0x0F) * (MAX_BRIGHTNESS >> 1)));
+        LED_OBJ.setBrightness((uint8_t)(((float)(blade.cmd & 0x0F)/0x0F) * (MAX_BRIGHTNESS >> 1)));
         next_step = millis() + 40;
         break;
 
       // high brightness flicker command; set the blade to some brightness level between 50 and 100% based on the value supplied
       case BLADE_FLICKER_HIGH:
         #ifdef SERIAL_DEBUG_ENABLE
-          Serial.println("Blade State Change: BLADE_FLICKER_HIGH");
+          Serial.println(F("Blade State Change: BLADE_FLICKER_HIGH"));
         #endif
 
-        FastLED.setBrightness((uint8_t)((1 + (float)(blade.cmd & 0x0F)/0x0F) * (MAX_BRIGHTNESS >> 1)));
+        LED_OBJ.setBrightness((uint8_t)((1 + (float)(blade.cmd & 0x0F)/0x0F) * (MAX_BRIGHTNESS >> 1)));
         next_step = millis() + 40;
         break;
 
@@ -569,31 +588,78 @@ void blade_manager() {
     }
 
     // update the LED strip with any changes
-    FastLED.show();
+    LED_OBJ.show();
   }
 
-  // any ongoing animation is handled here; if next_step has a value greater than 0 then some animation is happening
-  // if next_step is less than or equal to the current time in milliseconds then it's time to execute the next step of the animation
+  //
+  // ** BLADE MANAGER STAGE TWO : ONGOING ACTION **
+  //
+  // If next_step has a value greater than 0 then some animation is happening.
+  // 
+  // If next_step is less than or equal to the current time in milliseconds then it's time to execute the next step
+  // of action (animation, color change, etc.)
+  //
   if (next_step > 0 && next_step <= millis()) {
     switch (blade.state) {
 
       // animate the blade igniting by turning on 1 LED at a time
       case BLADE_IGNITING:
 
-        // how many LEDs should be ignited at this point in time?
-        target = ceil(((millis() - next_step)/(float)(TIME_DECODE(blade.lightsaber->ignition_time))) * NUM_LEDS);
-        if (target > TARGET_MAX) {
-            target = TARGET_MAX;
+        // if using the Adafruit NeoPixel library, adjust next_step to take into account the time lost
+        // due to the library blocking the increment of millis() during its operations
+        #ifdef LEDLIB_ADAFRUIT_NEOPIXEL
+          next_step -= ADAFRUIT_ADJUST;
+        #endif
+
+        // next_step contains the timestamp when the blade began ignition
+        //
+        // calculate how much time has elapsed since ignition began and calculate how many LEDs should
+        // be ignited at this point.
+        if ((next_step + TIME_DECODE(blade.lightsaber->ignition_time)) <= millis()) {
+          target = TARGET_MAX;
+        } else {
+          target = ceil(((millis() - next_step)/(float)(TIME_DECODE(blade.lightsaber->ignition_time))) * NUM_LEDS);
+
+          // do not allow target to go above TARGET_MAX
+          if (target > TARGET_MAX) {
+              target = TARGET_MAX;
+          }
         }
 
-        // ignite those LEDs
-        for (;animate_step < target;animate_step++) {
-          leds[animate_step] = blade.color;
-          #ifdef MIRROR_MODE
-            leds[(NUM_LEDS - 1) - animate_step] = blade.color;
-          #endif
-        }
+        // ignite the blade
 
+        // if the LED_FILL_N macro exists (Adafruit NeoPixel) use that to help speed things up
+        // by filling multiple pixels in one step rather than incrementing through each pixel
+        // individually using LED_SET_PIXEL
+        #ifdef LED_FILL_N
+
+          // the fill command, if given a count value of 0, will fill the entire blade
+          // so make sure we have at least 1 LED to fill before using that fill command
+          if ((target - animate_step) > 0) {
+            LED_FILL_N(blade.color, animate_step, target - animate_step);
+
+            // if using MIRROR_MODE, start ignting from the end of the stip towards the center
+            #ifdef MIRROR_MODE
+              LED_FILL_N(blade.color, NUM_LEDS - target, target - animate_step);
+            #endif
+
+            // update animate_step
+            animate_step = target;
+          }
+
+        #else
+
+          // increment through each pixel in this block and set its color
+          for (;animate_step < target;animate_step++) {
+            LED_SET_PIXEL(animate_step, blade.color);
+
+            #ifdef MIRROR_MODE
+              LED_SET_PIXEL((NUM_LEDS - 1) - animate_step, blade.color);
+            #endif
+          }
+        #endif
+
+        // have we reached the end of the strip of LEDs?
         if (target >= TARGET_MAX) {
           next_step = 0;
           blade.state = BLADE_ON;
@@ -603,30 +669,50 @@ void blade_manager() {
       // second part of the clash animation; set the blade back to its normal color
       case BLADE_CLASH:
         next_step = 0;
-        fill_solid(leds, NUM_LEDS, blade.color);
+        LED_FILL(blade.color);
         blade.state = BLADE_IDLE;
         break;
 
       // animate the blade extinguishing by turning off 1 LED at a time
       case BLADE_EXTINGUISHING:
 
+        #ifdef LEDLIB_ADAFRUIT_NEOPIXEL
+          next_step -= ADAFRUIT_ADJUST;
+        #endif
+
         // how many LEDs should be extinguished at this point in time?
-        target = ceil(((millis() - next_step)/(float)(TIME_DECODE(blade.lightsaber->extinguish_time))) * NUM_LEDS);
-        if (target > TARGET_MAX) {
+        if ((next_step + TIME_DECODE(blade.lightsaber->extinguish_time)) <= millis()) {
           target = TARGET_MAX;
+        } else {
+          target = ceil(((millis() - next_step)/(float)(TIME_DECODE(blade.lightsaber->extinguish_time))) * NUM_LEDS);
+          if (target > TARGET_MAX) {
+              target = TARGET_MAX;
+          }
         }
 
-        // extinguish those LEDs
-        for (;animate_step < target;animate_step++) {
-          #ifdef MIRROR_MODE
-            leds[TARGET_MAX + animate_step] = CRGB_BLADE_OFF;
-            leds[TARGET_MAX - animate_step] = CRGB_BLADE_OFF;
-          #else
-            leds[(NUM_LEDS - 1) - animate_step] = CRGB_BLADE_OFF;
-          #endif
-        }
+        #ifdef LED_FILL_N
+          if ((target - animate_step) > 0) {
+            #ifdef MIRROR_MODE
+              LED_FILL_N(RGB_BLADE_OFF, TARGET_MAX - target, target * 2);
+            #else
+              LED_FILL_N(RGB_BLADE_OFF, NUM_LEDS - target, target - animate_step);
+            #endif
+            animate_step = target;
+          }
 
-        if (target >= TARGET_MAX) {
+        #else
+          // extinguish those LEDs
+          for (;animate_step < target;animate_step++) {
+            #ifdef MIRROR_MODE
+              LED_SET_PIXEL(TARGET_MAX + animate_step, RGB_BLADE_OFF);
+              LED_SET_PIXEL(TARGET_MAX - animate_step, RGB_BLADE_OFF);
+            #else
+              LED_SET_PIXEL((NUM_LEDS - 1) - animate_step, RGB_BLADE_OFF);
+            #endif
+          }
+        #endif
+
+        if (animate_step >= TARGET_MAX) {
           next_step = 0;
           blade.state = BLADE_OFF;
         }
@@ -635,7 +721,7 @@ void blade_manager() {
       // second part of the flicker, reduce brightness by 20%
       case BLADE_FLICKER_LOW:
       case BLADE_FLICKER_HIGH:
-        FastLED.setBrightness((uint8_t)((float)FastLED.getBrightness() * .8));
+        LED_OBJ.setBrightness((uint8_t)((float)LED_OBJ.getBrightness() * .8));
         next_step = 0;
         blade.state = BLADE_IDLE;
         break;
@@ -670,19 +756,25 @@ void blade_manager() {
         next_step = millis() + SLEEP_AFTER;
         break;
 
+      // blade is at idle
       case BLADE_IDLE:
+
         switch (blade.color_mode) {
+
+          // if in the color wheel cycle mode
           case COLOR_MODE_WHEEL_CYCLE:
 
+            // increment the wheel
             wheel_index += COLOR_WHEEL_CYCLE_STEP;
 
             #ifdef SERIAL_DEBUG_ENABLE
-              Serial.print("\nNext Color: ");
+              Serial.print(F("\nNext Color: "));
               Serial.println(wheel_index);
             #endif
 
+            // set the new color by wheel
             blade.color = color_by_wheel(wheel_index);
-            fill_solid(leds, NUM_LEDS, blade.color);
+            LED_FILL(blade.color);
             next_step = millis() + COLOR_WHEEL_PAUSE_TIME;
             break;
         }
@@ -694,7 +786,7 @@ void blade_manager() {
 
     // update the LED strip with any changes
     // this is not called at the base of this function in order to reduce overhead caused by needlessly sending data out to the strip
-    FastLED.show();
+    LED_OBJ.show();
   }
 }
 
@@ -703,7 +795,7 @@ void process_command() {
 
   // DEBUG: display decoded command to serial monitor
   #ifdef SERIAL_DEBUG_ENABLE
-    Serial.print("CMD: 0x");
+    Serial.print(F("CMD: 0x"));
     Serial.println(blade.cmd, HEX);
   #endif
 
@@ -728,7 +820,7 @@ void process_command() {
         blade.state = BLADE_REFRESH;
       } else {
         #ifdef SERIAL_DEBUG_ENABLE
-          Serial.print("Refresh blocked! Not in IDLE state; state is 0x");
+          Serial.print(F("Refresh blocked! Not in IDLE state; state is 0x"));
           Serial.println(blade.state, HEX);
         #endif
       }
@@ -742,7 +834,7 @@ void process_command() {
         blade.state = BLADE_REFRESH;
       } else {
         #ifdef SERIAL_DEBUG_ENABLE
-          Serial.print("Refresh blocked! Not in IDLE state; state is 0x");
+          Serial.print(F("Refresh blocked! Not in IDLE state; state is 0x"));
           Serial.println(blade.state, HEX);
         #endif
       }
@@ -872,14 +964,6 @@ void setup() {
   // setup DATA pin for hilt
   pinMode(HILT_DATA_PIN, INPUT_PULLUP);
 
-  // define (so we can shut off) the Trinket M0's on-board dotstar LED
-  #ifdef ADAFRUIT_TRINKET_M0
-    FastLED.addLeds<DOTSTAR, DOTSTAR_DATPIN, DOTSTAR_CLKPIN, BGR>(&dotstar, 1);
-  #endif
-
-  // define LED strip
-  FastLED.addLeds<FASTLED_LED_TYPE, LED_DATA_PIN, FASTLED_RGB_ORDER>(leds, NUM_LEDS);
-
   // SAMD boards like the Trinket M0 need the ArduinoLowPower library to attach the interrupt to ensure the board wakes from sleep
   #ifdef ARDUINO_ARCH_SAMD
     LowPower.attachInterruptWakeup(digitalPinToInterrupt(HILT_DATA_PIN), read_cmd, CHANGE);
@@ -889,13 +973,28 @@ void setup() {
     attachInterrupt(digitalPinToInterrupt(HILT_DATA_PIN), read_cmd, CHANGE);
   #endif
 
+  // initialize LEDs
+  #ifdef LEDLIB_ADAFRUIT_NEOPIXEL
+    LED_OBJ.begin();
+    #ifdef ADAFRUIT_TRINKET_M0
+      dotstar.begin();
+      dotstar.fill(RGB_BLADE_OFF);
+      dotstar.show();
+    #endif
+  #else 
+    #ifdef ADAFRUIT_TRINKET_M0
+      FastLED.addLeds<DOTSTAR, INTERNAL_DS_DATA, INTERNAL_DS_CLK, BGR>(&dotstar, 1);
+    #endif
+    FastLED.addLeds<FASTLED_LED_TYPE, LED_DATA_PIN, FASTLED_RGB_ORDER>(leds, NUM_LEDS);
+  #endif
+
   // start the blade in an OFF state
   blade.state = BLADE_OFF;
 
   // serial output for debug purposes
   #ifdef SERIAL_DEBUG_ENABLE
     Serial.begin(115200);
-    Serial.println("Ready!");
+    Serial.println(F("Ready!"));
   #endif
 }
 
