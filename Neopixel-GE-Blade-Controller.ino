@@ -1,4 +1,4 @@
-/* Galaxy's Edge Lightsaber Compatible Neopixel Blade Controller : v1.8
+/* Galaxy's Edge Lightsaber Compatible Neopixel Blade Controller : v1.8.1
  * code by ruthsarian@gmail.com
  *
  * ABOUT
@@ -62,9 +62,14 @@
  *      ; at my brightness (64), 144 pixels consume about 500mA
  *
  *  ATTinyX06 / tinyNeoPixel Limitations
- *    Limited resources of the ATTinyX06s cause longer strands of LEDs to not ignite.
- *    If your X06-based device is not igniting LEDs, change NUM_LEDS to a very small value (10) and
- *    try again. If it works with 10, then this is your problem. AAdjust NUM_LEDs until it works.
+ *    Limited memory of the ATTinyX06s cause longer strands of LEDs to not ignite.
+ *    
+ *    Compile, but don't upload, your sketch. If the output window reports less than 60 bytes of
+ *    memory available for local variables then you'll need to decrease NUM_LEDs.
+ *    
+ *  ATTinyX06 : tinyNeoPixel : tinyNeoPixelStatic
+ *        806   58             92
+ *       1606   227            264
  *    
  *  ATTinyX06 VQFN20 Pinout Notes
  *    0 = PA4 = PIN 5
@@ -83,7 +88,7 @@
 #define FASTLED_RGB_ORDER       GRB     // the color order for the LEDs
                                         // if you are NOT using the FastLED library then you can ignore this
 
-#define NUM_LEDS                58      // number of LEDs in the strip; MAX: 806:58, 1606:227
+#define NUM_LEDS                144     // number of LEDs in the strip
 #define MAX_BRIGHTNESS          64      // default brightness; lower value = lower current draw
 #define HILT_DATA_PIN           2       // digital pin the hilt's data line is connected to
 #define LED_DATA_PIN            4       // digital pin the LED strip is attached to
@@ -130,9 +135,15 @@
   #define LED_FILL_N(c, s, n) LED_OBJ.fill(c, s, n)           // c = color, s = starting LED, n = number of LEDs to fill
 
   // must use tinyNeoPixel for megaTinyCore
+  //
+  // using tinyNeoPixel_Static to save memory space which can be used to support larger strands
+  // compiling will also clue us in as to whether or not we're near our pixel limit when we start seeing 'low memory available' warnings
+  //
+  // about 60 bytes for local variables is the target
   #ifdef MEGATINYCORE
-    #include <tinyNeoPixel.h>
-    tinyNeoPixel LED_OBJ = tinyNeoPixel(NUM_LEDS, LED_DATA_PIN, ADAFRUIT_LED_TYPE);
+    #include <tinyNeoPixel_Static.h>
+    byte LED_OBJ_array[NUM_LEDS * 3];
+    tinyNeoPixel LED_OBJ = tinyNeoPixel(NUM_LEDS, LED_DATA_PIN, ADAFRUIT_LED_TYPE, LED_OBJ_array);
 
   // otherwise use the Adafruit NeoPixel library
   #else
@@ -975,11 +986,15 @@ void setup() {
 
   // initialize LEDs
   #ifdef LEDLIB_ADAFRUIT_NEOPIXEL
-    LED_OBJ.begin();
-    #ifdef ADAFRUIT_TRINKET_M0
-      dotstar.begin();
-      dotstar.fill(RGB_BLADE_OFF);
-      dotstar.show();
+    #ifdef MEGATINYCORE
+      pinMode(LED_DATA_PIN, OUTPUT);
+    #else
+      LED_OBJ.begin();
+      #ifdef ADAFRUIT_TRINKET_M0
+        dotstar.begin();
+        dotstar.fill(RGB_BLADE_OFF);
+        dotstar.show();
+      #endif
     #endif
   #else 
     #ifdef ADAFRUIT_TRINKET_M0
