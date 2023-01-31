@@ -1,21 +1,21 @@
-/* Galaxy's Edge Lightsaber Compatible Neopixel Blade Controller : v1.8.1
+/* Galaxy's Edge Lightsaber Compatible Neopixel Blade Controller : v1.8.3
  * code by ruthsarian@gmail.com
  *
  * ABOUT
  *  This code is designed to behave as a blade controller for blades containing addressable RGB LEDs (NeoPixels).
  *  It is compatible with Galaxy's Edge lightsaber hilts. 
- *  
+ *
  *  It was inspired by the Dead Bothans Society's custom blade project which utilizes a Trinket M0
  *    see: https://www.deadbothans.com/2019/08/31/switching-to-m0-trinket-and-custom-connectors/
  *    see: https://www.patreon.com/deadbothans
  *    see: https://www.adafruit.com/product/3500
- * 
+ *
  *  And these instructions for building a custom blade developed by Wedge from the SWGE Discord Server (swgediscord.com)
  *    see: https://1drv.ms/w/s!Asy0Vb60mZ1el7hoTX-i5ShwGGqm4Q?e=9xP2ac
- * 
+ *
  *  The code has been designed to work with either the FastLED or Adafruit NeoPixel libraries. 
  *  However, FastLED is recommended.
- *  
+ *
  *  Boards known to work with this code are listed below, but many other boards are likely to also work.
  *   - Adafruit Trinket M0
  *   - Arduino Nano
@@ -49,9 +49,9 @@
  *  ATTiny(8|16)06
  *    - Datasheet: http://ww1.microchip.com/downloads/en/DeviceDoc/ATtiny806_1606_Data_Sheet_40002029A.pdf
  *    - Pinout Reference: https://github.com/SpenceKonde/megaTinyCore/blob/master/megaavr/extras/ATtiny_x06.gif
- * 
+ *
  * NOTES
- *  
+ *
  *  Power Consumption
  *    - Trinket M0
  *      ; Trinket M0 on its own, in standby, consumes 1.2mA; removing green power LED (or its resistor) only saves about 200uA of current; probably not worth removing
@@ -67,6 +67,9 @@
  *    Compile, but don't upload, your sketch. If the output window reports less than 60 bytes of
  *    memory available for local variables then you'll need to decrease NUM_LEDs.
  *    
+ *    If you notice LEDs are not fully turning off and have a dim, white color to them then the
+ *    issue is with timing. Increase the clock speed to 16MHz or 20MHz.
+ *    
  *  ATTinyX06 : tinyNeoPixel : tinyNeoPixelStatic
  *        806   58             92
  *       1606   227            264
@@ -78,9 +81,11 @@
  *
  */
 
-#define ADAFRUIT_LED_TYPE       NEO_GRB+NEO_KHZ800  // define the NeoPixel type to use with the Adafruit NeoPixel library.
+#define ADAFRUIT_LED_TYPE       NEO_RGB+NEO_KHZ800  // define the NeoPixel type to use with the Adafruit NeoPixel library.
                                                     // if you are NOT using the NeoPixel library then you can ignore this.
                                                     // see: https://adafruit.github.io/Adafruit_NeoPixel/html/class_adafruit___neo_pixel.html
+                                                    //
+                                                    // NEO_RGB, NEO_GRB+NEO_KHZ800
 
 #define FASTLED_LED_TYPE        WS2812B // define the type of LED used with the FastLED library
                                         // if you are NOT using the FastLED library then you can ignore this
@@ -88,14 +93,15 @@
 #define FASTLED_RGB_ORDER       GRB     // the color order for the LEDs
                                         // if you are NOT using the FastLED library then you can ignore this
 
-#define NUM_LEDS                144     // number of LEDs in the strip
+#define NUM_LEDS                8       // number of LEDs in the strip
 #define MAX_BRIGHTNESS          64      // default brightness; lower value = lower current draw
-#define HILT_DATA_PIN           2       // digital pin the hilt's data line is connected to
-#define LED_DATA_PIN            4       // digital pin the LED strip is attached to
-#define LED_PWR_SWITCH_PIN      0       // this pin is held low until the blade turns on, at which point it will be pushed high
+#define HILT_DATA_PIN           2       // PIN_PC3 digital pin the hilt's data line is connected to
+#define LED_DATA_PIN            4       // PIN_PA2 digital pin the LED strip is attached to
+#define LED_PWR_SWITCH_PIN      0       // PIN_PA1 this pin is held low until the blade turns on, at which point it will be pushed high
                                         // this can be used to control a switch to connect and disconnect a battery switch; see: https://www.pololu.com/product/2811
-                                        // 
                                         // if not using a switch, comment out this define
+#define LED_PWR_ON              2       // the state of LED_PWR_SWITCH_PIN that will enable power to the LEDs
+                                        // 0 = LOW, 1 = HIGH, 2 = LOW w/tri-state off, 3 = HIGH w/tri-state off
 //#define MIRROR_MODE                   // uncomment to enable mirror mode
                                         // mirror mode treats the strip of LEDs as a single strip, folded in half, to create the blade
                                         // as such, when igniting both the first and last LEDs in the strip will turn on and the next in turn
@@ -370,6 +376,49 @@ LED_RGB_TYPE color_by_wheel(uint8_t wheel) {
   }
 }
 
+// switch off power to the LEDs
+void led_power_off() {
+  switch(LED_PWR_ON) {
+    case 0:
+      digitalWrite(LED_PWR_SWITCH_PIN, HIGH);
+      break;
+
+    // if the power switch is a PNP transistor and power to the LEDs is higher than 
+    // the power of the microcontroller, then even if output is set HIGH, voltage at
+    // the base will be lower than the emitter, thus power will flow to the LEDs.
+    //
+    // in 'tri-state' mode the pin goes high impedance, preventing any current flowing into
+    // the pin, thus turning the PNP transistor off even if it's emitter has a higher voltage.
+    //
+    // see: https://forum.arduino.cc/t/tri-state-logic-on-io-pins/12277
+    case 2:
+    case 3:
+      digitalWrite(LED_PWR_SWITCH_PIN, LOW);
+      pinMode(LED_PWR_SWITCH_PIN, OUTPUT);
+      pinMode(LED_PWR_SWITCH_PIN, INPUT);
+      break;
+    default:
+      digitalWrite(LED_PWR_SWITCH_PIN, LOW);
+      break;
+  }
+}
+
+// switch on power to the LEDs
+void led_power_on() {
+  switch(LED_PWR_ON) {
+    case 2:
+      pinMode(LED_PWR_SWITCH_PIN, OUTPUT);
+    case 0:
+      digitalWrite(LED_PWR_SWITCH_PIN, LOW);
+      break;
+    case 3:
+      pinMode(LED_PWR_SWITCH_PIN, OUTPUT);
+    default:
+      digitalWrite(LED_PWR_SWITCH_PIN, HIGH);
+      break;
+  }
+}
+
 // blade_manager() takes care of changing the colors of the blade
 //
 // if you're looking to add custom blade behaviors then this function is likely
@@ -425,7 +474,7 @@ void blade_manager() {
 
         // disconnect power to the LEDs
         #ifdef LED_PWR_SWITCH_PIN
-          digitalWrite(LED_PWR_SWITCH_PIN, LOW);
+          led_power_off();
         #endif
         break;
 
@@ -486,7 +535,7 @@ void blade_manager() {
 
         // connect LED battery power
         #ifdef LED_PWR_SWITCH_PIN
-          digitalWrite(LED_PWR_SWITCH_PIN, HIGH);
+          led_power_on();
         #endif
 
         // clear the LEDs immediately after they are powered on via LED_PWR_SWITCH_PIN
@@ -561,7 +610,7 @@ void blade_manager() {
 
         // connect LED battery power
         #ifdef LED_PWR_SWITCH_PIN
-          digitalWrite(LED_PWR_SWITCH_PIN, HIGH);
+          led_power_on();
         #endif
 
         // set the blade color
@@ -647,7 +696,8 @@ void blade_manager() {
           // the fill command, if given a count value of 0, will fill the entire blade
           // so make sure we have at least 1 LED to fill before using that fill command
           if ((target - animate_step) > 0) {
-            LED_FILL_N(blade.color, animate_step, target - animate_step);
+            //LED_FILL_N(blade.color, animate_step, target - animate_step);
+            LED_SET_PIXEL(animate_step++, blade.color);
 
             // if using MIRROR_MODE, start ignting from the end of the stip towards the center
             #ifdef MIRROR_MODE
@@ -656,8 +706,14 @@ void blade_manager() {
 
             // update animate_step
             animate_step = target;
-          }
 
+            // it seems that very short strands need this little delay 
+            // when using tinyNeoPixel. i do not know why, but without it
+            // the ignition and extinguish animations do not work.
+            #ifdef MEGATINYCORE
+              delayMicroseconds(100);
+            #endif
+          }
         #else
 
           // increment through each pixel in this block and set its color
@@ -708,10 +764,15 @@ void blade_manager() {
             #else
               LED_FILL_N(RGB_BLADE_OFF, NUM_LEDS - target, target - animate_step);
             #endif
-            animate_step = target;
-          }
 
+            animate_step = target;
+
+            #ifdef MEGATINYCORE
+              delayMicroseconds(100);
+            #endif
+          }
         #else
+
           // extinguish those LEDs
           for (;animate_step < target;animate_step++) {
             #ifdef MIRROR_MODE
@@ -969,7 +1030,7 @@ void setup() {
   // setup LED power switch
   #ifdef LED_PWR_SWITCH_PIN
     pinMode(LED_PWR_SWITCH_PIN, OUTPUT);
-    digitalWrite(LED_PWR_SWITCH_PIN, LOW);
+    led_power_off();
   #endif
 
   // setup DATA pin for hilt
@@ -1002,6 +1063,9 @@ void setup() {
     #endif
     FastLED.addLeds<FASTLED_LED_TYPE, LED_DATA_PIN, FASTLED_RGB_ORDER>(leds, NUM_LEDS);
   #endif
+  LED_OBJ.clear();
+  LED_OBJ.show();
+  delay(100);
 
   // start the blade in an OFF state
   blade.state = BLADE_OFF;
