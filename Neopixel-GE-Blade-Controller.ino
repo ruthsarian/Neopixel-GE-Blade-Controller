@@ -81,7 +81,7 @@
  *
  */
 
-#define ADAFRUIT_LED_TYPE       NEO_RGB+NEO_KHZ800  // define the NeoPixel type to use with the Adafruit NeoPixel library.
+#define ADAFRUIT_LED_TYPE       NEO_GRB+NEO_KHZ800  // define the NeoPixel type to use with the Adafruit NeoPixel library.
                                                     // if you are NOT using the NeoPixel library then you can ignore this.
                                                     // see: https://adafruit.github.io/Adafruit_NeoPixel/html/class_adafruit___neo_pixel.html
                                                     //
