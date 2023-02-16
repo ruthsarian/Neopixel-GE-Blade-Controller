@@ -1,4 +1,4 @@
-/* Galaxy's Edge Lightsaber Compatible Neopixel Blade Controller : v1.8.3
+/* Galaxy's Edge Lightsaber Compatible Neopixel Blade Controller : v1.8.4
  * code by ruthsarian@gmail.com
  *
  * ABOUT
@@ -79,6 +79,12 @@
  *    2 = PA6 = PIN 7
  *    4 = PB5 = PIN 9
  *
+ * // defines I use with my top secret custom blade project
+ * #define HILT_DATA_PIN           PIN_PC3
+ * #define LED_DATA_PIN            PIN_PA2
+ * #define LED_PWR_SWITCH_PIN      PIN_PA5
+ * #define LED_PWR_ON              2 
+ *
  */
 
 #define ADAFRUIT_LED_TYPE       NEO_GRB+NEO_KHZ800  // define the NeoPixel type to use with the Adafruit NeoPixel library.
@@ -93,14 +99,14 @@
 #define FASTLED_RGB_ORDER       GRB     // the color order for the LEDs
                                         // if you are NOT using the FastLED library then you can ignore this
 
-#define NUM_LEDS                8       // number of LEDs in the strip
+#define NUM_LEDS                144     // number of LEDs in the strip
 #define MAX_BRIGHTNESS          64      // default brightness; lower value = lower current draw
-#define HILT_DATA_PIN           2       // PIN_PC3 digital pin the hilt's data line is connected to
-#define LED_DATA_PIN            4       // PIN_PA2 digital pin the LED strip is attached to
-#define LED_PWR_SWITCH_PIN      0       // PIN_PA1 this pin is held low until the blade turns on, at which point it will be pushed high
+#define HILT_DATA_PIN           2       // digital pin the hilt's data line is connected to
+#define LED_DATA_PIN            4       // digital pin the LED strip is attached to
+#define LED_PWR_SWITCH_PIN      0       // this pin is held low until the blade turns on, at which point it will be pushed high
                                         // this can be used to control a switch to connect and disconnect a battery switch; see: https://www.pololu.com/product/2811
                                         // if not using a switch, comment out this define
-#define LED_PWR_ON              2       // the state of LED_PWR_SWITCH_PIN that will enable power to the LEDs
+#define LED_PWR_ON              1       // the state of LED_PWR_SWITCH_PIN that will enable power to the LEDs
                                         // 0 = LOW, 1 = HIGH, 2 = LOW w/tri-state off, 3 = HIGH w/tri-state off
 //#define MIRROR_MODE                   // uncomment to enable mirror mode
                                         // mirror mode treats the strip of LEDs as a single strip, folded in half, to create the blade
@@ -197,7 +203,7 @@
 #endif
 
 // power consumption considerations
-#ifdef ARDUINO_ARCH_AVR
+#if defined(ARDUINO_ARCH_AVR) || defined(ARDUINO_ARCH_MEGAAVR)
   #include <avr/sleep.h>
   #include <avr/power.h>
 #elif defined ARDUINO_ARCH_SAMD
@@ -800,26 +806,25 @@ void blade_manager() {
 
       case BLADE_OFF:
         // blade has been off for SLEEP_AFTER milliseconds. go to sleep to conserve power
-        #ifdef ARDUINO_ARCH_AVR
-          #ifdef ARDUINO_AVR_ATTINYX5
+        #if defined(ARDUINO_ARCH_AVR) || defined(ARDUINO_ARCH_MEGAAVR)
 
-            // ATTiny85 will wake ONLY when external interrupt pin goes LOW
-            //attachInterrupt(digitalPinToInterrupt(HILT_DATA_PIN), read_cmd, LOW);
-            MCUCR = (MCUCR & ~((1 << ISC00) | (1 << ISC01))) | (LOW << ISC00);
-          #endif
-
+          // allow the MCU to go to sleep
           sleep_enable();
+
+          // megaTinyCore has BOD configured in the board settings, not here.
+          #ifndef ARDUINO_ARCH_MEGAAVR
           sleep_bod_disable();
           power_all_disable();
+          #endif
+
           sleep_cpu();                  // put the MCU to sleep
+
+          #ifndef ARDUINO_ARCH_MEGAAVR
           power_all_enable();
+          #endif
+
           sleep_disable();
 
-          #ifdef ARDUINO_AVR_ATTINYX5
-            // return interrupt trigger to CHANGE instead of LOW
-            //attachInterrupt(digitalPinToInterrupt(HILT_DATA_PIN), read_cmd, CHANGE);
-            MCUCR = (MCUCR & ~((1 << ISC00) | (1 << ISC01))) | (CHANGE << ISC00);
-           #endif
         #elif defined ARDUINO_ARCH_SAMD
           LowPower.sleep();
         #endif
@@ -1001,14 +1006,14 @@ void read_cmd() {
 // setup() performs one-time initialization steps
 void setup() {
 
-  #ifdef ARDUINO_ARCH_AVR
+  #if defined(ARDUINO_ARCH_AVR) || defined(ARDUINO_ARCH_MEGAAVR)
     // default all pins to INPUT_PULLUP mode in order to conserve power
     for (uint8_t i = 0; i < NUM_DIGITAL_PINS; i++ ) {
-      pinMode(i, INPUT) ;
+      pinMode(i, INPUT_PULLUP) ;
     }
 
     // set sleep mode
-    #ifdef ARDUINO_ARCH_AVR
+    #if defined(ARDUINO_ARCH_AVR) || defined(ARDUINO_ARCH_MEGAAVR)
       #ifdef DO_NOT_SLEEP_PWR_DOWN
         set_sleep_mode(SLEEP_MODE_ADC);
       #else
