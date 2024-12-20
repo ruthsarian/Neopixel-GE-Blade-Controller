@@ -11,6 +11,8 @@ For example, the value of `NUM_LEDS` should match the number of LEDs in your bla
 ## Custom Colors
 As of version 1.8, the code supports custom colors. Extinguish and then reignite a blade within 1.5 seconds to switch into color cycle mode. In this mode the blade cycles through colors every 2 seconds. When the blade is on a color you want, extinguish then reignite the blade within 1.5 seconds to lock that color in. The blade will retain that color for as long as it is plugged into the hilt. 
 
+As of version 2.0, while in color cycle mode, trigger a blade clash and you'll be given the option to select a white blade color. If you don't select white by powering the blade off and then on again, it will switch to the next color in the cycle.
+
 ## Library and Core Requirements
 Adruino libraries needed for this sketch:
 * [FastLED](https://github.com/FastLED/FastLED)
