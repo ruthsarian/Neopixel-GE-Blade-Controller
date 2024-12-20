@@ -105,7 +105,7 @@
 // Experiment. Ignite with a red crystal or a green crystal. Does it ignite the other color? Then you need to change your color order!
 //
 
-#define ADAFRUIT_LED_TYPE       NEO_RGB+NEO_KHZ800  // define the NeoPixel type to use with the Adafruit NeoPixel library.
+#define ADAFRUIT_LED_TYPE       NEO_GRB+NEO_KHZ800  // define the NeoPixel type to use with the Adafruit NeoPixel library.
                                                     // if you are NOT using the NeoPixel library then you can ignore this.
                                                     // see: https://adafruit.github.io/Adafruit_NeoPixel/html/class_adafruit___neo_pixel.html
                                                     //
@@ -114,17 +114,17 @@
 #define FASTLED_LED_TYPE        WS2812B // define the type of LED used with the FastLED library
                                         // if you are NOT using the FastLED library then you can ignore this
                                         // see: https://github.com/FastLED/FastLED/blob/master/src/FastLED.h
-#define FASTLED_RGB_ORDER       RGB     // the color order for the LEDs
+#define FASTLED_RGB_ORDER       GRB     // the color order for the LEDs
                                         // if you are NOT using the FastLED library then you can ignore this
 
-#define NUM_LEDS                16      // number of LEDs in the strip
-#define MAX_BRIGHTNESS          128     // default brightness; lower value = lower current draw
-#define HILT_DATA_PIN           PIN_PC3 // digital pin the hilt's data line is connected to
-#define LED_DATA_PIN            PIN_PA2 // digital pin the LED strip is attached to
-#define LED_PWR_SWITCH_PIN      PIN_PA5 // this pin is held low until the blade turns on, at which point it will be pushed high
+#define NUM_LEDS                144     // number of LEDs in the strip
+#define MAX_BRIGHTNESS          64      // default brightness; lower value = lower current draw
+#define HILT_DATA_PIN           2       // digital pin the hilt's data line is connected to
+#define LED_DATA_PIN            4       // digital pin the LED strip is attached to
+#define LED_PWR_SWITCH_PIN      0       // this pin is held low until the blade turns on, at which point it will be pushed high
                                         // this can be used to control a switch to connect and disconnect a battery switch; see: https://www.pololu.com/product/2811
                                         // if not using a switch, comment out this define
-#define LED_PWR_ON              2       // the state of LED_PWR_SWITCH_PIN that will enable power to the LEDs
+#define LED_PWR_ON              1       // the state of LED_PWR_SWITCH_PIN that will enable power to the LEDs
                                         // 0 = LOW, 1 = HIGH, 2 = LOW w/tri-state off, 3 = HIGH w/tri-state off
 //#define MIRROR_MODE                   // uncomment to enable mirror mode
                                         // mirror mode treats the strip of LEDs as a single strip, folded in half, to create the blade
@@ -207,7 +207,7 @@
 
 // my particular variant of addressable RGB LEDs have a 'bug' that requires a delay between calls to show()
 // see note under "Refresh Rate" section: https://github.com/SpenceKonde/tinyNeoPixel
-#define I_HAVE_CRUMMY_RGBLEDS
+//#define I_HAVE_CRUMMY_RGBLEDS
 #ifdef I_HAVE_CRUMMY_RGBLEDS
   #define SHOW_LEDS     delay(NUM_LEDS>>1);LED_OBJ.show
 #else
