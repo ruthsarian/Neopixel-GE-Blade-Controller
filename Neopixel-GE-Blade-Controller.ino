@@ -50,6 +50,9 @@
  *    - Datasheet: http://ww1.microchip.com/downloads/en/DeviceDoc/ATtiny806_1606_Data_Sheet_40002029A.pdf
  *    - Pinout Reference: https://github.com/SpenceKonde/megaTinyCore/blob/master/megaavr/extras/ATtiny_x06.gif
  *
+ *  CH340 Windows Driver Fix
+ *    - https://github.com/SHWotever/FakeCH340DriverFixer
+ *    
  * NOTES
  *
  *  Power Consumption
@@ -61,6 +64,13 @@
  *      ; at max brightness (255), 144 pixels consume about 1.3A
  *      ; at my brightness (64), 144 pixels consume about 500mA
  *
+ *  Crummy RGB LEDs
+ *    Some addressable RGB LEDs require some amount of delay between sending changes to
+ *    the LED strip. To accomadate this I've added a define, I_HAVE_CRUMMY_RGBLEDS which,
+ *    when set, will add 1/2 NUM_LEDS delay, in milliseconds, before every show() command.
+ *    If you encounter issues with LEDs not behaving, especially on ignition or extinguish,
+ *    try defining this and see if it helps.
+ *
  *  ATTinyX06 / tinyNeoPixel Limitations
  *    Limited memory of the ATTinyX06s cause longer strands of LEDs to not ignite.
  *    
@@ -69,7 +79,7 @@
  *    
  *    If you notice LEDs are not fully turning off and have a dim, white color to them then the
  *    issue is with timing. Increase the clock speed to 16MHz or 20MHz.
- *    
+ *
  *  ATTinyX06 : tinyNeoPixel : tinyNeoPixelStatic
  *        806   58             92
  *       1606   227            264
@@ -87,7 +97,15 @@
  *
  */
 
-#define ADAFRUIT_LED_TYPE       NEO_GRB+NEO_KHZ800  // define the NeoPixel type to use with the Adafruit NeoPixel library.
+//
+// What pixels do you have: RGB or GRB?
+// 
+// Some addressable RGB LEDs use GRB pixel ordering, others RGB. 
+// Depending on YOUR addressable RGB LEDs, you may need to modify ADAFRUIT_LED_TYPE and/or FASTLED_RGB_ORDER from "RGB" to "GRB".
+// Experiment. Ignite with a red crystal or a green crystal. Does it ignite the other color? Then you need to change your color order!
+//
+
+#define ADAFRUIT_LED_TYPE       NEO_RGB+NEO_KHZ800  // define the NeoPixel type to use with the Adafruit NeoPixel library.
                                                     // if you are NOT using the NeoPixel library then you can ignore this.
                                                     // see: https://adafruit.github.io/Adafruit_NeoPixel/html/class_adafruit___neo_pixel.html
                                                     //
@@ -96,17 +114,17 @@
 #define FASTLED_LED_TYPE        WS2812B // define the type of LED used with the FastLED library
                                         // if you are NOT using the FastLED library then you can ignore this
                                         // see: https://github.com/FastLED/FastLED/blob/master/src/FastLED.h
-#define FASTLED_RGB_ORDER       GRB     // the color order for the LEDs
+#define FASTLED_RGB_ORDER       RGB     // the color order for the LEDs
                                         // if you are NOT using the FastLED library then you can ignore this
 
-#define NUM_LEDS                144     // number of LEDs in the strip
-#define MAX_BRIGHTNESS          64      // default brightness; lower value = lower current draw
-#define HILT_DATA_PIN           2       // digital pin the hilt's data line is connected to
-#define LED_DATA_PIN            4       // digital pin the LED strip is attached to
-#define LED_PWR_SWITCH_PIN      0       // this pin is held low until the blade turns on, at which point it will be pushed high
+#define NUM_LEDS                16      // number of LEDs in the strip
+#define MAX_BRIGHTNESS          128     // default brightness; lower value = lower current draw
+#define HILT_DATA_PIN           PIN_PC3 // digital pin the hilt's data line is connected to
+#define LED_DATA_PIN            PIN_PA2 // digital pin the LED strip is attached to
+#define LED_PWR_SWITCH_PIN      PIN_PA5 // this pin is held low until the blade turns on, at which point it will be pushed high
                                         // this can be used to control a switch to connect and disconnect a battery switch; see: https://www.pololu.com/product/2811
                                         // if not using a switch, comment out this define
-#define LED_PWR_ON              1       // the state of LED_PWR_SWITCH_PIN that will enable power to the LEDs
+#define LED_PWR_ON              2       // the state of LED_PWR_SWITCH_PIN that will enable power to the LEDs
                                         // 0 = LOW, 1 = HIGH, 2 = LOW w/tri-state off, 3 = HIGH w/tri-state off
 //#define MIRROR_MODE                   // uncomment to enable mirror mode
                                         // mirror mode treats the strip of LEDs as a single strip, folded in half, to create the blade
@@ -185,6 +203,15 @@
     LED_RGB_TYPE dotstar;       // Trinket M0 dotstar LED
   #endif
   LED_RGB_TYPE leds[NUM_LEDS];  // blade LEDs
+#endif
+
+// my particular variant of addressable RGB LEDs have a 'bug' that requires a delay between calls to show()
+// see note under "Refresh Rate" section: https://github.com/SpenceKonde/tinyNeoPixel
+#define I_HAVE_CRUMMY_RGBLEDS
+#ifdef I_HAVE_CRUMMY_RGBLEDS
+  #define SHOW_LEDS     delay(NUM_LEDS>>1);LED_OBJ.show
+#else
+  #define SHOW_LEDS     LED_OBJ.show
 #endif
 
 // something to help calculate values for ignition and extinguish loops
@@ -348,7 +375,9 @@ typedef enum {
 typedef enum {
   COLOR_MODE_STOCK,
   COLOR_MODE_WHEEL_CYCLE,
-  COLOR_MODE_WHEEL_HOLD
+  COLOR_MODE_WHEEL_CYCLE_WHITE,
+  COLOR_MODE_WHEEL_HOLD,
+  COLOR_MODE_WHEEL_HOLD_WHITE
 } color_mode_t;
 
 // blade properties template
@@ -471,7 +500,7 @@ void blade_manager() {
 
         // turn the LEDs off
         LED_OBJ.clear();
-        LED_OBJ.show();     // unnecessary since the next step is to cut power to the LEDs
+        SHOW_LEDS();     // unnecessary since the next step is to cut power to the LEDs
                             // i'm leaving this line in because my test environment will sometimes
                             // involve keeping the LEDs always powered
                             //
@@ -512,6 +541,16 @@ void blade_manager() {
               blade.color_mode = COLOR_MODE_WHEEL_HOLD;
               break;
 
+            case COLOR_MODE_WHEEL_CYCLE_WHITE:
+              #ifdef SERIAL_DEBUG_ENABLE
+                Serial.println(F("New Color Mode: COLOR_MODE_WHEEL_HOLD"));
+              #endif
+
+              blade.color_mode = COLOR_MODE_WHEEL_HOLD_WHITE;
+              break;
+
+            case COLOR_MODE_WHEEL_HOLD:
+            case COLOR_MODE_WHEEL_HOLD_WHITE:
             default:
               #ifdef SERIAL_DEBUG_ENABLE
                 Serial.println(F("New Color Mode: COLOR_MODE_STOCK"));
@@ -530,6 +569,13 @@ void blade_manager() {
           case COLOR_MODE_WHEEL_HOLD:
             blade.color = color_by_wheel(wheel_index);
             blade.color_clash = RGB_BLADE_CLASH_WHITE;   // TODO: intelligently pick a clash color; CRGB(255, 255, 255)
+            break;
+
+          // white blade
+          case COLOR_MODE_WHEEL_CYCLE_WHITE:
+          case COLOR_MODE_WHEEL_HOLD_WHITE:
+            blade.color = RGB_BLADE_WHITE;
+            blade.color_clash = RGB_BLADE_CLASH_YELLOW;
             break;
 
           // in all other instances, use the stock blade color
@@ -570,12 +616,19 @@ void blade_manager() {
         switch (blade.color_mode) {
 
           // in color wheel cycle mode, cycle through colors in the wheel every COLOR_WHEEL_PAUSE_TIME milliseconds
-          //
-          // at this point, it's possible we're entering an IDLE state after a blade refresh, in which case we don't
-          // want to touch next_step; only set next_step if it has a value less than the current time in ms
           case COLOR_MODE_WHEEL_CYCLE:
+          case COLOR_MODE_WHEEL_CYCLE_WHITE:
+
+            // at this point, it's possible we're entering an IDLE state after a blade refresh, 
+            // in which case we don't want to touch next_step; only set next_step if it has a 
+            // value less than the current time in ms
             if (next_step < millis()) {
               next_step = millis() + COLOR_WHEEL_PAUSE_TIME;
+
+              // if we're a white blade (triggered by a clash) hold the color a little longer;
+              if (blade.color_mode == COLOR_MODE_WHEEL_CYCLE_WHITE) {
+                next_step += COLOR_WHEEL_PAUSE_TIME;
+              }
             }
             break;
         }
@@ -654,7 +707,7 @@ void blade_manager() {
     }
 
     // update the LED strip with any changes
-    LED_OBJ.show();
+    SHOW_LEDS();
   }
 
   //
@@ -741,6 +794,21 @@ void blade_manager() {
 
       // second part of the clash animation; set the blade back to its normal color
       case BLADE_CLASH:
+
+        // clash during color cycle momentarily select white
+        if (blade.color_mode == COLOR_MODE_WHEEL_CYCLE) {
+
+          blade.color_mode = COLOR_MODE_WHEEL_CYCLE_WHITE;
+          blade.color = RGB_BLADE_WHITE;
+          blade.color_clash = RGB_BLADE_CLASH_YELLOW;
+
+        // if we're already in white for the wheel cycle, exit
+        } else if (blade.color_mode == COLOR_MODE_WHEEL_CYCLE_WHITE) {
+
+          blade.color = color_by_wheel(wheel_index);
+          blade.color_clash = RGB_BLADE_CLASH_WHITE;
+          blade.color_mode = COLOR_MODE_WHEEL_CYCLE;          
+        }
         next_step = 0;
         LED_FILL(blade.color);
         blade.state = BLADE_IDLE;
@@ -838,6 +906,11 @@ void blade_manager() {
 
         switch (blade.color_mode) {
 
+          // we've held white long enough...
+          case COLOR_MODE_WHEEL_CYCLE_WHITE:
+            blade.color_mode = COLOR_MODE_WHEEL_CYCLE;
+            blade.color_clash = RGB_BLADE_CLASH_WHITE;
+
           // if in the color wheel cycle mode
           case COLOR_MODE_WHEEL_CYCLE:
 
@@ -863,7 +936,7 @@ void blade_manager() {
 
     // update the LED strip with any changes
     // this is not called at the base of this function in order to reduce overhead caused by needlessly sending data out to the strip
-    LED_OBJ.show();
+    SHOW_LEDS();
   }
 }
 
@@ -1069,7 +1142,7 @@ void setup() {
     FastLED.addLeds<FASTLED_LED_TYPE, LED_DATA_PIN, FASTLED_RGB_ORDER>(leds, NUM_LEDS);
   #endif
   LED_OBJ.clear();
-  LED_OBJ.show();
+  SHOW_LEDS();
   delay(100);
 
   // start the blade in an OFF state
