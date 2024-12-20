@@ -1,4 +1,4 @@
-/* Galaxy's Edge Lightsaber Compatible Neopixel Blade Controller : v1.8.4
+/* Galaxy's Edge Lightsaber Compatible Neopixel Blade Controller : v2.0
  * code by ruthsarian@gmail.com
  *
  * ABOUT
