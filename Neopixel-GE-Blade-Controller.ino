@@ -1,4 +1,4 @@
-/* Galaxy's Edge Lightsaber Compatible Neopixel Blade Controller : v2.0
+/* Galaxy's Edge Lightsaber Compatible Neopixel Blade Controller : v2.1
  * code by ruthsarian@gmail.com
  *
  * ABOUT
@@ -90,6 +90,8 @@
  *    4 = PB5 = PIN 9
  *
  * // defines I use with my top secret custom blade project
+ * #define ADAFRUIT_LED_TYPE       NEO_RGB+NEO_KHZ800
+ * #define NUM_LEDS                16
  * #define HILT_DATA_PIN           PIN_PC3
  * #define LED_DATA_PIN            PIN_PA2
  * #define LED_PWR_SWITCH_PIN      PIN_PA5
@@ -296,7 +298,7 @@
 const LED_RGB_TYPE color_table[][2] = {
   {RGB_BLADE_WHITE,        RGB_BLADE_CLASH_YELLOW},
   {RGB_BLADE_RED,          RGB_BLADE_CLASH_ORANGE},
-  {RGB_BLADE_ORANGE,       RGB_BLADE_CLASH_WHITE},
+  {RGB_BLADE_ORANGE,       RGB_BLADE_CLASH_YELLOW},
   {RGB_BLADE_YELLOW,       RGB_BLADE_CLASH_WHITE},
   {RGB_BLADE_GREEN,        RGB_BLADE_CLASH_YELLOW},
   {RGB_BLADE_CYAN,         RGB_BLADE_CLASH_YELLOW},
@@ -349,7 +351,7 @@ const stock_lightsaber_t legacy_lightsaber[LIGHTSABER_TABLE_LEN] = {
   { INDEX_BLADE_RED,          TIME_ENCODE(240), TIME_ENCODE(500),       TIME_ENCODE(500)}, // Darth Vader
   { INDEX_BLADE_RED,          TIME_ENCODE(240), TIME_ENCODE(750),       TIME_ENCODE(330)}, // Darth Maul
   { INDEX_BLADE_BLUE,         TIME_ENCODE(240), TIME_ENCODE(495),       TIME_ENCODE(415)}, // Obi-Wan, Ben Solo
-  { INDEX_BLADE_WHITE,        TIME_ENCODE(240), TIME_ENCODE(160),       TIME_ENCODE(415)},
+  { INDEX_BLADE_ORANGE,       TIME_ENCODE(240), TIME_ENCODE(175),       TIME_ENCODE(450)}, // Baylan Skoll / Shin Hati
   { INDEX_BLADE_WHITE,        TIME_ENCODE(240), TIME_ENCODE(160),       TIME_ENCODE(415)},
   { INDEX_BLADE_WHITE,        TIME_ENCODE(240), TIME_ENCODE(160),       TIME_ENCODE(415)},
   { INDEX_BLADE_WHITE,        TIME_ENCODE(240), TIME_ENCODE(160),       TIME_ENCODE(415)},
