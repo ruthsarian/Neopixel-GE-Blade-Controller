@@ -264,18 +264,19 @@
 #endif
 
 // stock blade colors; these values are based on PWM duty cycles measured from a stock blade controller
-#define RGB_BLADE_WHITE         LED_RGB(102, 102, 102)
+#define RGB_BLADE_WHITE         LED_RGB(112, 112, 112)
 #define RGB_BLADE_RED           LED_RGB(255,   0,   0)
-#define RGB_BLADE_ORANGE        LED_RGB(231,  77,   0)
-#define RGB_BLADE_YELLOW        LED_RGB(154, 154,   0)
+#define RGB_BLADE_ORANGE        LED_RGB(255, 102,   0)
+#define RGB_BLADE_YELLOW        LED_RGB(152, 152,   0)
 #define RGB_BLADE_GREEN         LED_RGB(  0, 255,   0)
-#define RGB_BLADE_CYAN          LED_RGB(  0, 154, 154)
+#define RGB_BLADE_CYAN          LED_RGB(  0, 152, 152)
 #define RGB_BLADE_BLUE          LED_RGB(  0,   0, 255)
-#define RGB_BLADE_PURPLE        LED_RGB(154,   0, 154)
-#define RGB_BLADE_DARK_PURPLE   LED_RGB( 26,   0,  13)
+#define RGB_BLADE_PURPLE        LED_RGB(152,   0, 152)
+#define RGB_BLADE_DARK_PURPLE   LED_RGB( 16,   0,  32)
+#define RGB_BLADE_ORANGE_RED    LED_RGB(192,  32,   0)
+#define RGB_BLADE_CLASH_WHITE   LED_RGB(128, 128, 128)
 #define RGB_BLADE_CLASH_YELLOW  LED_RGB(255, 255,   0)
 #define RGB_BLADE_CLASH_ORANGE  LED_RGB(255,  64,   0)
-#define RGB_BLADE_CLASH_WHITE   LED_RGB(128, 128, 128)
 #define RGB_BLADE_OFF           LED_RGB(  0,   0,   0)
 
 // how many lightsabers per lightsaber table
@@ -291,6 +292,7 @@
 #define INDEX_BLADE_BLUE        6
 #define INDEX_BLADE_PURPLE      7
 #define INDEX_BLADE_DARK_PURPLE 8
+#define INDEX_BLADE_ORANGE_RED  9
 #define INDEX_COLOR_TABLE_COLOR 0
 #define INDEX_COLOR_TABLE_CLASH 1
 
@@ -298,13 +300,14 @@
 const LED_RGB_TYPE color_table[][2] = {
   {RGB_BLADE_WHITE,        RGB_BLADE_CLASH_YELLOW},
   {RGB_BLADE_RED,          RGB_BLADE_CLASH_ORANGE},
-  {RGB_BLADE_ORANGE,       RGB_BLADE_CLASH_YELLOW},
+  {RGB_BLADE_ORANGE,       RGB_BLADE_CLASH_WHITE},
   {RGB_BLADE_YELLOW,       RGB_BLADE_CLASH_WHITE},
   {RGB_BLADE_GREEN,        RGB_BLADE_CLASH_YELLOW},
   {RGB_BLADE_CYAN,         RGB_BLADE_CLASH_YELLOW},
   {RGB_BLADE_BLUE,         RGB_BLADE_CLASH_YELLOW},
   {RGB_BLADE_PURPLE,       RGB_BLADE_CLASH_YELLOW},
-  {RGB_BLADE_DARK_PURPLE,  RGB_BLADE_CLASH_ORANGE}
+  {RGB_BLADE_DARK_PURPLE,  RGB_BLADE_CLASH_ORANGE},
+  {RGB_BLADE_ORANGE_RED,   RGB_BLADE_CLASH_YELLOW}
 };
 
 // stock lightsaber properties template
@@ -327,7 +330,7 @@ const stock_lightsaber_t savi_lightsaber[LIGHTSABER_TABLE_LEN] = {
   { INDEX_BLADE_CYAN,         TIME_ENCODE(280), TIME_ENCODE(275),       TIME_ENCODE(565)}, //   cyan kyber crystal
   { INDEX_BLADE_BLUE,         TIME_ENCODE(280), TIME_ENCODE(275),       TIME_ENCODE(565)}, //   blue kyber crystal
   { INDEX_BLADE_PURPLE,       TIME_ENCODE(280), TIME_ENCODE(370),       TIME_ENCODE(660)}, // purple kyber crystal
-  { INDEX_BLADE_DARK_PURPLE,  TIME_ENCODE(280), TIME_ENCODE(945),       TIME_ENCODE(470)}, //
+  { INDEX_BLADE_DARK_PURPLE,  TIME_ENCODE(280), TIME_ENCODE(945),       TIME_ENCODE(470)}, // unused; blades bundled with legacy hilts produce ORANGE instead
   { INDEX_BLADE_RED,          TIME_ENCODE(240), TIME_ENCODE(830),       TIME_ENCODE(415)}, //
   { INDEX_BLADE_RED,          TIME_ENCODE(240), TIME_ENCODE(830),       TIME_ENCODE(415)}, //
   { INDEX_BLADE_YELLOW,       TIME_ENCODE(240), TIME_ENCODE(000),       TIME_ENCODE(240)}, //
@@ -351,7 +354,7 @@ const stock_lightsaber_t legacy_lightsaber[LIGHTSABER_TABLE_LEN] = {
   { INDEX_BLADE_RED,          TIME_ENCODE(240), TIME_ENCODE(500),       TIME_ENCODE(500)}, // Darth Vader
   { INDEX_BLADE_RED,          TIME_ENCODE(240), TIME_ENCODE(750),       TIME_ENCODE(330)}, // Darth Maul
   { INDEX_BLADE_BLUE,         TIME_ENCODE(240), TIME_ENCODE(495),       TIME_ENCODE(415)}, // Obi-Wan, Ben Solo
-  { INDEX_BLADE_ORANGE,       TIME_ENCODE(240), TIME_ENCODE(175),       TIME_ENCODE(450)}, // Baylan Skoll / Shin Hati
+  { INDEX_BLADE_ORANGE_RED,   TIME_ENCODE(240), TIME_ENCODE(175),       TIME_ENCODE(450)}, // Baylan Skoll / Shin Hati
   { INDEX_BLADE_WHITE,        TIME_ENCODE(240), TIME_ENCODE(160),       TIME_ENCODE(415)},
   { INDEX_BLADE_WHITE,        TIME_ENCODE(240), TIME_ENCODE(160),       TIME_ENCODE(415)},
   { INDEX_BLADE_WHITE,        TIME_ENCODE(240), TIME_ENCODE(160),       TIME_ENCODE(415)},
