@@ -672,6 +672,12 @@ void blade_manager() {
           Serial.println(F("Blade State Change: BLADE_REFRESH"));
         #endif
 
+        // set the blade color; this is needed for color-changing legacy hilts like Cal and Ahsoka
+        if (blade.color_mode == COLOR_MODE_STOCK) {
+            blade.color = color_table[blade.lightsaber->color_index][INDEX_COLOR_TABLE_COLOR];
+            blade.color_clash = color_table[blade.lightsaber->color_index][INDEX_COLOR_TABLE_CLASH];
+        }
+
         // connect LED battery power
         #ifdef LED_PWR_SWITCH_PIN
           led_power_on();
