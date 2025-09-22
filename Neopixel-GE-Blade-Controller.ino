@@ -64,21 +64,14 @@
  *      ; at max brightness (255), 144 pixels consume about 1.3A
  *      ; at my brightness (64), 144 pixels consume about 500mA
  *
- *  Crummy RGB LEDs
- *    Some addressable RGB LEDs require some amount of delay between sending changes to
- *    the LED strip. To accomadate this I've added a define, I_HAVE_CRUMMY_RGBLEDS which,
- *    when set, will add 1/2 NUM_LEDS delay, in milliseconds, before every show() command.
- *    If you encounter issues with LEDs not behaving, especially on ignition or extinguish,
- *    try defining this and see if it helps.
- *
  *  ATTinyX06 / tinyNeoPixel Limitations
  *    Limited memory of the ATTinyX06s cause longer strands of LEDs to not ignite.
  *    
- *    Compile, but don't upload, your sketch. If the output window reports less than 60 bytes of
+ *    Compile, but don't upload your sketch. If the output window reports less than 60 bytes of
  *    memory available for local variables then you'll need to decrease NUM_LEDs.
  *    
  *    If you notice LEDs are not fully turning off and have a dim, white color to them then the
- *    issue is with timing. Increase the clock speed to 16MHz or 20MHz.
+ *    issue is with timing. Try increasing MCU clock speed.
  *
  *  ATTinyX06 : tinyNeoPixel : tinyNeoPixelStatic
  *        806   58             92
@@ -207,11 +200,11 @@
   LED_RGB_TYPE leds[NUM_LEDS];  // blade LEDs
 #endif
 
-// my particular variant of addressable RGB LEDs have a 'bug' that requires a delay between calls to show()
+// a hack to add a delay before show() needed for some addressable RGB LEDs. you probably do not need this.
 // see note under "Refresh Rate" section: https://github.com/SpenceKonde/tinyNeoPixel
 //#define I_HAVE_CRUMMY_RGBLEDS
 #ifdef I_HAVE_CRUMMY_RGBLEDS
-  #define SHOW_LEDS     delay(NUM_LEDS>>1);LED_OBJ.show
+  #define SHOW_LEDS     delayMicroseconds(200);LED_OBJ.show
 #else
   #define SHOW_LEDS     LED_OBJ.show
 #endif
@@ -224,9 +217,11 @@
 #endif
 
 // Adafruit_NeoPixel halts the millis() counter while executing; this slows ignition and extinguish considerably.
-// Use this value to compensate for the lost millis() time
+// Use this value to compensate for the lost millis() time.
+// This is a hack and I really should try to find a "proper" solution.
 #ifdef MEGATINYCORE
-  #define ADAFRUIT_ADJUST   (TARGET_MAX >> 5)
+  //#define ADAFRUIT_ADJUST   (TARGET_MAX >> 5)
+  #define ADAFRUIT_ADJUST   0
 #else
   #define ADAFRUIT_ADJUST   (TARGET_MAX >> 4)
 #endif
@@ -737,7 +732,7 @@ void blade_manager() {
 
         // if using the Adafruit NeoPixel library, adjust next_step to take into account the time lost
         // due to the library blocking the increment of millis() during its operations
-        #ifdef LEDLIB_ADAFRUIT_NEOPIXEL
+        #if defined(LEDLIB_ADAFRUIT_NEOPIXEL) && !defined(MEGATINYCORE)
           next_step -= ADAFRUIT_ADJUST;
         #endif
 
