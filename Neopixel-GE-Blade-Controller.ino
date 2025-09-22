@@ -1,4 +1,4 @@
-/* Galaxy's Edge Lightsaber Compatible Neopixel Blade Controller : v2.1
+/* Galaxy's Edge Lightsaber Compatible Neopixel Blade Controller : v2.2
  * code by ruthsarian@gmail.com
  *
  * ABOUT
@@ -140,6 +140,9 @@
 #define COLOR_WHEEL_PAUSE_TIME  2000    // how long to hold a color before moving to the next color
 #define COLOR_WHEEL_CYCLE_STEP  16      // how many steps to jump when calculating the next color in the color cycle; a power of 2 is recommended
 //#define USE_ADAFRUIT_NEOPIXEL         // uncomment to use the Adafruit NeoPixel library instead of FastLED; THERE IS NO REASON TO DO THIS ... unless there is
+
+//#define ENABLE_DEMO                   // define this to enable a demo program which will run instead of reading commands from the hilt.
+                                        // i use this to test the blade without having to connect it to a hilt, just need to provide power and ground to the blade
 
 // megaTinyCore does not support FastLED, however it does come with its own version of
 // the Adafruit NeoPixel library. 
@@ -1161,8 +1164,37 @@ void setup() {
   #endif
 }
 
+#ifdef ENABLE_DEMO
+void demo() {
+  static uint32_t next_action = 0;
+  static uint8_t cmds_idx = 0;
+  //static uint8_t cmds[] = {0x80, 0x20, 0xa1, 0xa2, 0xa3, 0xa4, 0xa5, 0xa6, 0xa7, 0x40};    // reset, reset, power on white, red, orange, yellow, green, cyan, blue, purple, power off
+  static uint8_t cmds[] = {0x80, 0x20, 0x40, 0x21, 0x41, 0x22, 0x42, 0x23, 0x43, 0x24, 0x44, 0x25, 0x45, 0x26, 0x46, 0x27, 0x47 };
+  static uint8_t cmds_len = sizeof(cmds) / sizeof(uint8_t);
+
+  // cmds[] is a list of command values to send to the hilt. commands are sent in order, once every 5 seconds. the sequence will repeat forever.
+  // galaxy's edge hilt protocol is explained on the hilt & blade communications tab of the galaxy's edge research spreadsheet located here:
+  // https://docs.google.com/spreadsheets/d/13P_GE6tNYpGvoVUTEQvA3SQzMqpZ-SoiWaTNoJoTV9Q/edit?gid=1478016256
+
+  // is it time to perform the next action?
+  if (next_action < millis()) {
+    hilt_cmd = cmds[cmds_idx++];
+    next_action = millis() + 5000;
+
+    // reset back to the start of the command list
+    if (cmds_idx >= cmds_len) {
+      cmds_idx = 0;
+    }
+  }
+}
+#endif
+
 // loop() is the main proram loop
 void loop() {
+
+  #ifdef ENABLE_DEMO
+    demo();
+  #endif
 
   // check for a command from the hilt
   if (hilt_cmd != 0) {
