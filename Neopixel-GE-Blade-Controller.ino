@@ -21,6 +21,26 @@
  *   - Arduino Nano
  *   - ATTiny(8|16)06
  *
+ * KNOWN ISSUES
+ *
+ *  ISSUE:
+ *    If you turn the blade off then on again very quickly, the blade will appear off/blank for a few
+ *    seconds. This is a limitation of the LED libraries and hardware being used.
+ *  DETAIL:
+ *    Most RGB LED libraries will disable interrupts while sending data to the LEDs. Interrupts are how
+ *    commands from the hilt are being detected. Therefore it is possible to miss a hilt command while
+ *    show() is being called. In testing this is an issue mainly with turning the hilt on before the blade
+ *    is fully extinguished. In these instances, the hilt will behave as if the blade is on, but the blade
+ *    will appear off as it missed the on command. However this will be rectified within a few seconds as
+ *    the hilt will start sending commands to set the blade to a single color every second soon after 
+ *    ignition and these commands WILL be picked up by the blade and it will immediatle turn on. The issue 
+ *    is less noticable during extinguish. The present "fix" for this? Just don't turn the blade off and on 
+ *    again rapidly. If you get a blank blade, wait a few seconds and it'll be back to normal. Long term, 
+ *    the fix for this might be to ditch interrupts and use a routine that polls the hilt data line every
+ *    time loop() executes. timings will be off and we may get corrupted commands, but perhaps we could add 
+ *    logic to do a "best guess". Or I write my own routines to send WS2812B commands that allows for 
+ *    interrupts. 
+ *
  * REQUIREMENTS
  *
  *  An Addressable RGB LED Library
@@ -71,7 +91,9 @@
  *    memory available for local variables then you'll need to decrease NUM_LEDs.
  *    
  *    If you notice LEDs are not fully turning off and have a dim, white color to them then the
- *    issue is with timing. Try increasing MCU clock speed.
+ *    issue is with timing. Try increasing the clock speed.
+ *
+ *    1606 @ 10MHz @ 3.3V works for me. 
  *
  *  ATTinyX06 : tinyNeoPixel : tinyNeoPixelStatic
  *        806   58             92
@@ -91,6 +113,15 @@
  * #define LED_PWR_SWITCH_PIN      PIN_PA5
  * #define LED_PWR_ON              2 
  * #define I_HAVE_CRUMMY_RGBLEDS
+ *
+ * // default defines that this code ships with
+ * #define ADAFRUIT_LED_TYPE       NEO_GRB+NEO_KHZ800
+ * #define NUM_LEDS                144
+ * #define MAX_BRIGHTNESS          64
+ * #define HILT_DATA_PIN           2
+ * #define LED_DATA_PIN            4
+ * #define LED_PWR_SWITCH_PIN      0
+ * #define LED_PWR_ON              1 
  *
  */
 
@@ -131,7 +162,7 @@
                                         // sleep will also stop the COM port of your microcontroller from appearing on your computer
                                         // set this as a large value while doing development, then lower it to 60000 or less for a
                                         // 'production' environment.
-#define SERIAL_DEBUG_ENABLE             // enable debug messages over serial
+//#define SERIAL_DEBUG_ENABLE           // enable debug messages over serial
 #define VALID_BIT_CUTOFF        4000    // any HIGH period on the data line longer than this value, in microseconds, is considered an invalid bit of data and causes a reset of the data capture
 #define VALID_BIT_ONE           1600    // any HIGH period longer than this value, in microseconds, but less than VALID_BIT_CUTOFF is treated as a valid 1 bit
                                         // any HIGH period shorter than this value, in microseconds, is treated as a valid 0 bit
@@ -141,8 +172,7 @@
 #define COLOR_MODE_CHANGE_TIME  1500    // if a blade is turned off then on again within this amount of time, then change to the next color mode
 #define COLOR_WHEEL_PAUSE_TIME  2000    // how long to hold a color before moving to the next color
 #define COLOR_WHEEL_CYCLE_STEP  16      // how many steps to jump when calculating the next color in the color cycle; a power of 2 is recommended
-//#define USE_ADAFRUIT_NEOPIXEL         // uncomment to use the Adafruit NeoPixel library instead of FastLED; THERE IS NO REASON TO DO THIS ... unless there is
-
+//#define USE_ADAFRUIT_NEOPIXEL         // uncomment to use the Adafruit NeoPixel library instead of FastLED
 //#define ENABLE_DEMO                   // define this to enable a demo program which will run instead of reading commands from the hilt.
                                         // i use this to test the blade without having to connect it to a hilt, just need to provide power and ground to the blade
 
@@ -156,7 +186,6 @@
 // to make the code LED library agnostic (ish), i'll use the macros defined below to control LEDs
 //
 #if defined(MEGATINYCORE) || defined(USE_ADAFRUIT_NEOPIXEL)
-  #define LEDLIB_ADAFRUIT_NEOPIXEL
   #define LED_OBJ             leds
   #define LED_RGB             LED_OBJ.Color
   #define LED_RGB_TYPE        uint32_t
@@ -179,6 +208,10 @@
   #else
     #include <Adafruit_NeoPixel.h>
     Adafruit_NeoPixel LED_OBJ = Adafruit_NeoPixel(NUM_LEDS, LED_DATA_PIN, ADAFRUIT_LED_TYPE);
+
+    // Adafruit_NeoPixel halts the millis() counter while executing; this slows ignition and extinguish considerably.
+    // Use this value to compensate for the lost millis() time. 
+    #define ADAFRUIT_ADJUST   (TARGET_MAX >> 4)
 
     // Trinket M0 users also need the Adafruit DotStar library in order to turn off the on-board
     // DotStart LED (thus saving a few mA of power consumption)
@@ -205,7 +238,8 @@
   LED_RGB_TYPE leds[NUM_LEDS];  // blade LEDs
 #endif
 
-// a hack to add a delay before show() needed for some addressable RGB LEDs. you probably do not need this.
+// som variants of addressable RGB LEDs require a delay between calls to show()
+// use the delayMicroseconds() to add some delay before calling show()
 // see note under "Refresh Rate" section: https://github.com/SpenceKonde/tinyNeoPixel
 //#define I_HAVE_CRUMMY_RGBLEDS
 #ifdef I_HAVE_CRUMMY_RGBLEDS
@@ -221,16 +255,6 @@
   #define TARGET_MAX NUM_LEDS
 #endif
 
-// Adafruit_NeoPixel halts the millis() counter while executing; this slows ignition and extinguish considerably.
-// Use this value to compensate for the lost millis() time.
-// This is a hack and I really should try to find a "proper" solution.
-#ifdef MEGATINYCORE
-  //#define ADAFRUIT_ADJUST   (TARGET_MAX >> 5)
-  #define ADAFRUIT_ADJUST   0
-#else
-  #define ADAFRUIT_ADJUST   (TARGET_MAX >> 4)
-#endif
-
 // power consumption considerations
 #if defined(ARDUINO_ARCH_AVR) || defined(ARDUINO_ARCH_MEGAAVR)
   #include <avr/sleep.h>
@@ -241,7 +265,7 @@
 #endif
 
 // program space considerations
-#if defined(ARDUINO_AVR_ATtiny806) || defined(ARDUINO_AVR_ATtiny1606)
+#if defined(ARDUINO_AVR_ATtiny806) //|| defined(ARDUINO_AVR_ATtiny1606)
 
   // defining SPACE_SAVER will enable some space-saving steps within the code to help it fit into smaller program space areas
   #define SPACE_SAVER
@@ -740,7 +764,7 @@ void blade_manager() {
 
         // if using the Adafruit NeoPixel library, adjust next_step to take into account the time lost
         // due to the library blocking the increment of millis() during its operations
-        #if defined(LEDLIB_ADAFRUIT_NEOPIXEL) && !defined(MEGATINYCORE)
+        #ifdef ADAFRUIT_ADJUST
           next_step -= ADAFRUIT_ADJUST;
         #endif
 
@@ -831,7 +855,7 @@ void blade_manager() {
       // animate the blade extinguishing by turning off 1 LED at a time
       case BLADE_EXTINGUISHING:
 
-        #ifdef LEDLIB_ADAFRUIT_NEOPIXEL
+        #ifdef ADAFRUIT_ADJUST
           next_step -= ADAFRUIT_ADJUST;
         #endif
 
@@ -941,7 +965,7 @@ void blade_manager() {
             LED_FILL(blade.color);
             next_step = millis() + COLOR_WHEEL_PAUSE_TIME;
             break;
-        
+
           default:
             break;
         }
@@ -1141,18 +1165,16 @@ void setup() {
   #endif
 
   // initialize LEDs
-  #ifdef LEDLIB_ADAFRUIT_NEOPIXEL
-    #ifdef MEGATINYCORE
-      pinMode(LED_DATA_PIN, OUTPUT);
-    #else
-      LED_OBJ.begin();
-      #ifdef ADAFRUIT_TRINKET_M0
-        dotstar.begin();
-        dotstar.fill(RGB_BLADE_OFF);
-        dotstar.show();
-      #endif
+  #ifdef MEGATINYCORE
+    pinMode(LED_DATA_PIN, OUTPUT);
+  #elif USE_ADAFRUIT_NEOPIXEL
+    LED_OBJ.begin();
+    #ifdef ADAFRUIT_TRINKET_M0
+      dotstar.begin();
+      dotstar.fill(RGB_BLADE_OFF);
+      dotstar.show();
     #endif
-  #else 
+  #else
     #ifdef ADAFRUIT_TRINKET_M0
       FastLED.addLeds<DOTSTAR, INTERNAL_DS_DATA, INTERNAL_DS_CLK, BGR>(&dotstar, 1);
     #endif
