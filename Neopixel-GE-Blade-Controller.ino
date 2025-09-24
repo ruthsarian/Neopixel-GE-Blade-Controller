@@ -634,6 +634,9 @@ void blade_manager() {
               }
             }
             break;
+
+          default:
+            break;
         }
         break;
 
@@ -935,6 +938,9 @@ void blade_manager() {
             blade.color = color_by_wheel(wheel_index);
             LED_FILL(blade.color);
             next_step = millis() + COLOR_WHEEL_PAUSE_TIME;
+            break;
+        
+          default:
             break;
         }
         break;
