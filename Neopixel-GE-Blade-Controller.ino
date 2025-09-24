@@ -207,7 +207,7 @@
 // see note under "Refresh Rate" section: https://github.com/SpenceKonde/tinyNeoPixel
 //#define I_HAVE_CRUMMY_RGBLEDS
 #ifdef I_HAVE_CRUMMY_RGBLEDS
-  #define SHOW_LEDS     delayMicroseconds(200);LED_OBJ.show
+  #define SHOW_LEDS     delayMicroseconds(280);LED_OBJ.show
 #else
   #define SHOW_LEDS     LED_OBJ.show
 #endif
