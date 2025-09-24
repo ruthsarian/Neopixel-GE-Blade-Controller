@@ -1,4 +1,4 @@
-/* Galaxy's Edge Lightsaber Compatible Neopixel Blade Controller : v2.2
+/* Galaxy's Edge Lightsaber Compatible Neopixel Blade Controller : v2.3
  * code by ruthsarian@gmail.com
  *
  * ABOUT
@@ -84,11 +84,13 @@
  *
  * // defines I use with my top secret custom blade project
  * #define ADAFRUIT_LED_TYPE       NEO_RGB+NEO_KHZ800
- * #define NUM_LEDS                16
+ * #define NUM_LEDS                61
+ * #define MAX_BRIGHTNESS          160
  * #define HILT_DATA_PIN           PIN_PC3
  * #define LED_DATA_PIN            PIN_PA2
  * #define LED_PWR_SWITCH_PIN      PIN_PA5
  * #define LED_PWR_ON              2 
+ * #define I_HAVE_CRUMMY_RGBLEDS
  *
  */
 
