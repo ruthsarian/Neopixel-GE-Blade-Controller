@@ -125,8 +125,7 @@
                                         // see: https://github.com/FastLED/FastLED/blob/master/src/FastLED.h
 #define FASTLED_RGB_ORDER       GRB     // the color order for the LEDs
                                         // if you are NOT using the FastLED library then you can ignore this
-
-#define NUM_LEDS                144      // number of LEDs in the strip
+#define NUM_LEDS                144     // number of LEDs in the strip
 #define MAX_BRIGHTNESS          64      // default brightness; lower value = lower current draw
 #define HILT_DATA_PIN           2       // digital pin the hilt's data line is connected to
 #define LED_DATA_PIN            4       // digital pin the LED strip is attached to
@@ -156,7 +155,7 @@
 //#define USE_ADAFRUIT_NEOPIXEL         // uncomment to use the Adafruit NeoPixel library instead of FastLED
 //#define ENABLE_DEMO                   // define this to enable a demo program which will run instead of reading commands from the hilt.
                                         // i use this to test the blade without having to connect it to a hilt, just need to provide power and ground to the blade
-#define LATCH_DELAY_US          280     // define the length of delay, in microseconds, your RGB LEDs need in order to latch; default is 50 but mine need 280
+#define LATCH_DELAY_US          50      // define the length of delay, in microseconds, your RGB LEDs need in order to latch; default is 50 but mine need 280
                                         // used only with tinyNeoPixel (for now)
 
 // megaTinyCore does not support FastLED, however it does come with its own version of
@@ -936,14 +935,23 @@ void blade_manager() {
 
           // megaTinyCore has BOD configured in the board settings, not here.
           #ifndef ARDUINO_ARCH_MEGAAVR
-          sleep_bod_disable();
-          power_all_disable();
+            sleep_bod_disable();
+            power_all_disable();
           #endif
+
+          // if not already using an interrupt, i have to attach an interrupt so the mcu wakes up
+          #ifdef USE_AVR_EV_CAPT
+            attachInterrupt(digitalPinToInterrupt(HILT_DATA_PIN), wakeISR, CHANGE);
+          #endif  
 
           sleep_cpu();                  // put the MCU to sleep
 
+          #ifdef USE_AVR_EV_CAPT
+            detachInterrupt(digitalPinToInterrupt(HILT_DATA_PIN));
+          #endif
+
           #ifndef ARDUINO_ARCH_MEGAAVR
-          power_all_enable();
+            power_all_enable();
           #endif
 
           sleep_disable();
@@ -1078,10 +1086,10 @@ void process_command() {
   }
 }
 
-
 #ifdef USE_AVR_EV_CAPT
   #define VALID_BIT_CUTOFF  VALID_BIT_CUTOFF_IN_TICKS
   #define VALID_BIT_ONE     VALID_BIT_ONE_IN_TICKS
+  void wakeISR() { }
 #else
   #define VALID_BIT_CUTOFF  VALID_BIT_CUTOFF_IN_US
   #define VALID_BIT_ONE     VALID_BIT_ONE_IN_US
