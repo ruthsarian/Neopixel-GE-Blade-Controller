@@ -1,4 +1,4 @@
-/* Galaxy's Edge Lightsaber Compatible Neopixel Blade Controller : v2.3
+/* Galaxy's Edge Lightsaber Compatible Neopixel Blade Controller : v2.4
  * code by ruthsarian@gmail.com
  *
  * ABOUT
@@ -19,27 +19,7 @@
  *  Boards known to work with this code are listed below, but many other boards are likely to also work.
  *   - Adafruit Trinket M0
  *   - Arduino Nano
- *   - ATTiny(8|16)06
- *
- * KNOWN ISSUES
- *
- *  ISSUE:
- *    If you turn the blade off then on again very quickly, the blade will appear off/blank for a few
- *    seconds. This is a limitation of the LED libraries and hardware being used.
- *  DETAIL:
- *    Most RGB LED libraries will disable interrupts while sending data to the LEDs. Interrupts are how
- *    commands from the hilt are being detected. Therefore it is possible to miss a hilt command while
- *    show() is being called. In testing this is an issue mainly with turning the hilt on before the blade
- *    is fully extinguished. In these instances, the hilt will behave as if the blade is on, but the blade
- *    will appear off as it missed the on command. However this will be rectified within a few seconds as
- *    the hilt will start sending commands to set the blade to a single color every second soon after 
- *    ignition and these commands WILL be picked up by the blade and it will immediatle turn on. The issue 
- *    is less noticable during extinguish. The present "fix" for this? Just don't turn the blade off and on 
- *    again rapidly. If you get a blank blade, wait a few seconds and it'll be back to normal. Long term, 
- *    the fix for this might be to ditch interrupts and use a routine that polls the hilt data line every
- *    time loop() executes. timings will be off and we may get corrupted commands, but perhaps we could add 
- *    logic to do a "best guess". Or I write my own routines to send WS2812B commands that allows for 
- *    interrupts. 
+ *   - ATTiny(8|16)06 (and other tinyAVR MCUs supported by megaTinyCore?)
  *
  * REQUIREMENTS
  *
@@ -112,7 +92,7 @@
  * #define LED_DATA_PIN            PIN_PA2
  * #define LED_PWR_SWITCH_PIN      PIN_PA5
  * #define LED_PWR_ON              2 
- * #define I_HAVE_CRUMMY_RGBLEDS
+ * #define LATCH_DELAY_US          280
  *
  * // default defines that this code ships with
  * #define ADAFRUIT_LED_TYPE       NEO_GRB+NEO_KHZ800
@@ -122,6 +102,7 @@
  * #define LED_DATA_PIN            4
  * #define LED_PWR_SWITCH_PIN      0
  * #define LED_PWR_ON              1 
+ * #define LATCH_DELAY_US          50
  *
  */
 
@@ -145,7 +126,7 @@
 #define FASTLED_RGB_ORDER       GRB     // the color order for the LEDs
                                         // if you are NOT using the FastLED library then you can ignore this
 
-#define NUM_LEDS                144     // number of LEDs in the strip
+#define NUM_LEDS                144      // number of LEDs in the strip
 #define MAX_BRIGHTNESS          64      // default brightness; lower value = lower current draw
 #define HILT_DATA_PIN           2       // digital pin the hilt's data line is connected to
 #define LED_DATA_PIN            4       // digital pin the LED strip is attached to
@@ -163,8 +144,8 @@
                                         // set this as a large value while doing development, then lower it to 60000 or less for a
                                         // 'production' environment.
 //#define SERIAL_DEBUG_ENABLE           // enable debug messages over serial
-#define VALID_BIT_CUTOFF        4000    // any HIGH period on the data line longer than this value, in microseconds, is considered an invalid bit of data and causes a reset of the data capture
-#define VALID_BIT_ONE           1600    // any HIGH period longer than this value, in microseconds, but less than VALID_BIT_CUTOFF is treated as a valid 1 bit
+#define VALID_BIT_CUTOFF_IN_US  4000    // any HIGH period on the data line longer than this value, in microseconds, is considered an invalid bit of data and causes a reset of the data capture
+#define VALID_BIT_ONE_IN_US     1600    // any HIGH period longer than this value, in microseconds, but less than VALID_BIT_CUTOFF is treated as a valid 1 bit
                                         // any HIGH period shorter than this value, in microseconds, is treated as a valid 0 bit
                                         // if blade is not registering commands correctly, this value likely needs to be tweaked
                                         // typically a 1 bit is about 2000uS (Legacy) or 2400uS (Savi) long and a 0 is 1200uS long. 
@@ -175,6 +156,8 @@
 //#define USE_ADAFRUIT_NEOPIXEL         // uncomment to use the Adafruit NeoPixel library instead of FastLED
 //#define ENABLE_DEMO                   // define this to enable a demo program which will run instead of reading commands from the hilt.
                                         // i use this to test the blade without having to connect it to a hilt, just need to provide power and ground to the blade
+#define LATCH_DELAY_US          280     // define the length of delay, in microseconds, your RGB LEDs need in order to latch; default is 50 but mine need 280
+                                        // used only with tinyNeoPixel (for now)
 
 // megaTinyCore does not support FastLED, however it does come with its own version of
 // the Adafruit NeoPixel library. 
@@ -238,14 +221,35 @@
   LED_RGB_TYPE leds[NUM_LEDS];  // blade LEDs
 #endif
 
-// som variants of addressable RGB LEDs require a delay between calls to show()
-// use the delayMicroseconds() to add some delay before calling show()
-// see note under "Refresh Rate" section: https://github.com/SpenceKonde/tinyNeoPixel
-//#define I_HAVE_CRUMMY_RGBLEDS
-#ifdef I_HAVE_CRUMMY_RGBLEDS
-  #define SHOW_LEDS     delayMicroseconds(280);LED_OBJ.show
+// for tinyAVR MCUs (using megaTinyCore) we're going to not use interrupts to detect data from the hilt
+// instead we'll use the event system and timer B to capture how long each data pulse was HIGH.
+//
+// this is done because the show() command disables interrupts which causes state changes on the hilt
+// data pin to be missed and also disrupts the detected timings because the micros() counter also stops
+// while interrupts are disabled.
+// 
+// other MCUs likely have a similar issue, but i'm not currenlty invested in getting them perfect like
+// i am with my ATTiny806/1606-based blade project. maybe i'll look at them more closely another day.
+#if defined(MEGATINYCORE) && defined(TCB0) && defined(EVSYS)
+  #warning "Using AVR tricks to read commands from hilt. NO WARRANTY!"
+
+  // use this to identify whether or not to use this approach
+  #define USE_AVR_EV_CAPT
+
+  // translate bit timings from microseconds to clock ticks
+  #define TCB0_TICKS_FROM_US(us, clk_div) ((uint32_t)((us) * (F_CPU / (1000000UL * (clk_div)))))
+  #define VALID_BIT_CUTOFF_IN_TICKS TCB0_TICKS_FROM_US(VALID_BIT_CUTOFF_IN_US, 2)
+  #define VALID_BIT_ONE_IN_TICKS    TCB0_TICKS_FROM_US(VALID_BIT_ONE_IN_US,    2)
+#endif
+
+// going to use this to block calls to show() if we see an incoming command
+// TODO: this may need to be revisited because it's possible we'll miss a critical show() and the blade
+//       will behave in an unexpected way
+#ifdef USE_AVR_EV_CAPT
+  #define USE_DONT_SHOW
+  #define SHOW_LEDS   if(!dont_show)LED_OBJ.show
 #else
-  #define SHOW_LEDS     LED_OBJ.show
+  #define SHOW_LEDS   LED_OBJ.show
 #endif
 
 // something to help calculate values for ignition and extinguish loops
@@ -264,8 +268,10 @@
   #define VERY_LOW_POWER          // for the Arduino SAMD core; helps reduce power consumption
 #endif
 
-// program space considerations
-#if defined(ARDUINO_AVR_ATtiny806) //|| defined(ARDUINO_AVR_ATtiny1606)
+// program space considerations for the ATtiny806 which has a very small amount of program space
+// i'll leave this separate from the next ifdef block in case we find other MCUs that have similar
+// space constraint issues (ATtiny85 perhaps?)
+#if defined(ARDUINO_AVR_ATtiny806)
 
   // defining SPACE_SAVER will enable some space-saving steps within the code to help it fit into smaller program space areas
   #define SPACE_SAVER
@@ -423,8 +429,19 @@ typedef struct {
 blade_t blade;
 
 // global variable where decoded hilt command is stored
-// it has the volatile keyword because it will be updated from within an interrupt service routine
-volatile uint8_t hilt_cmd = 0;
+#ifdef USE_AVR_EV_CAPT
+  uint8_t hilt_cmd = 0;
+#else
+  // volatile because it will be updated from within an interrupt service routine
+  volatile uint8_t hilt_cmd = 0;
+#endif
+
+// this define is set up above. i could have bundled it with the USE_AVR_EV_CAPT stuff,
+// but i foresee this being useful with other MCUs later on, so i wanted to separate
+// this out.
+#ifdef USE_DONT_SHOW
+  bool dont_show = false;
+#endif
 
 // generate an RGB color based on an 8-bit input value
 LED_RGB_TYPE color_by_wheel(uint8_t wheel) {
@@ -529,12 +546,12 @@ void blade_manager() {
 
         // turn the LEDs off
         LED_OBJ.clear();
-        SHOW_LEDS();     // unnecessary since the next step is to cut power to the LEDs
-                            // i'm leaving this line in because my test environment will sometimes
-                            // involve keeping the LEDs always powered
-                            //
-                            // and someone may have their pololu switch set to ON thus negating
-                            // the whole purpose of the power switch to begin with.
+        SHOW_LEDS();    // unnecessary since the next step is to cut power to the LEDs
+                        // i'm leaving this line in because my test environment will sometimes
+                        // involve keeping the LEDs always powered
+                        //
+                        // and someone may have their pololu switch set to ON thus negating
+                        // the whole purpose of the power switch to begin with.
 
         // disconnect power to the LEDs
         #ifdef LED_PWR_SWITCH_PIN
@@ -1061,6 +1078,15 @@ void process_command() {
   }
 }
 
+
+#ifdef USE_AVR_EV_CAPT
+  #define VALID_BIT_CUTOFF  VALID_BIT_CUTOFF_IN_TICKS
+  #define VALID_BIT_ONE     VALID_BIT_ONE_IN_TICKS
+#else
+  #define VALID_BIT_CUTOFF  VALID_BIT_CUTOFF_IN_US
+  #define VALID_BIT_ONE     VALID_BIT_ONE_IN_US
+#endif
+
 // read data from the hilt
 // data is sent in a series of pulses. each pulse represents a 1-bit value (0 or 1)
 // how long the pulse lasts will determine if it's a 1 or a 0
@@ -1071,12 +1097,26 @@ void read_cmd() {
   static uint32_t last_change = 0;
   uint32_t period = 0;
 
+#ifdef USE_AVR_EV_CAPT
+
+  if (TCB0.INTFLAGS & TCB_CAPT_bm) {
+
+    // record the time we're reading a new bit
+    last_change = micros();
+
+    // record the length of period
+    period = TCB0.CCMP;
+
+#else
+
   // when transitioning from HIGH to LOW record the time the data line was HIGH
   // record the bit value that corresponds to the the length of time the data line was HIGH
   if (digitalRead(HILT_DATA_PIN) == LOW) {
 
     // determine the length of the the data line was high
     period = micros() - last_change;
+
+#endif
 
     // if it was HIGH for less than 4ms treat it as a good bit value
     if (period < VALID_BIT_CUTOFF) {
@@ -1111,9 +1151,28 @@ void read_cmd() {
       bPos = 0;
     }
 
-  // just transitioned into LOW (ACTIVE) period, record the time when it started
+#ifdef USE_DONT_SHOW
+    if (bPos != 0 && !dont_show) {
+      dont_show = true;
+    } else if (bPos == 0 && dont_show) {
+      dont_show = false;
+    }
+#endif
+
   } else {
-    last_change = micros();
+
+#ifdef USE_AVR_EV_CAPT
+      // reset if we have a partial command and more than 4 times a valid bit cutoff period have passed
+      if (dont_show && micros() - last_change > VALID_BIT_CUTOFF * 4) {
+        dont_show = false;
+        bPos = 0;
+        cmd = 0;
+      }
+#else
+      // just transitioned into LOW (ACTIVE) period, record the time when it started
+      last_change = micros();
+#endif
+
   }
 }
 
@@ -1155,8 +1214,21 @@ void setup() {
   // setup DATA pin for hilt
   pinMode(HILT_DATA_PIN, INPUT_PULLUP);
 
+  // setup event system and timer for hilt data capture
+  #ifdef USE_AVR_EV_CAPT
+    EVSYS.SYNCCH0 = 0x0A;           // set PC3 as generator for syncrhonous channel
+    EVSYS.ASYNCUSER0 = 0x01;        // set TCB0 as a user of synchronous channel
+
+    TCB0.EVCTRL = TCB_FILTER_bm     // enable noise filter
+                | TCB_CAPTEI_bm;    // enable event input capture
+
+    TCB0.CTRLB = TCB_CNTMODE2_bm;   // set input capture mode to pulse-width measurement
+
+    TCB0.CTRLA = TCB_CLKSEL0_bm     // enable prescaler (CLK_PER/2), gives us more time to capture events
+              | TCB_ENABLE_bm;      // enable TCB0
+
   // SAMD boards like the Trinket M0 need the ArduinoLowPower library to attach the interrupt to ensure the board wakes from sleep
-  #ifdef ARDUINO_ARCH_SAMD
+  #elif defined(ARDUINO_ARCH_SAMD)
     LowPower.attachInterruptWakeup(digitalPinToInterrupt(HILT_DATA_PIN), read_cmd, CHANGE);
 
   // for all other Arduino boards
@@ -1167,6 +1239,7 @@ void setup() {
   // initialize LEDs
   #ifdef MEGATINYCORE
     pinMode(LED_DATA_PIN, OUTPUT);
+    LED_OBJ.updateLatch(LATCH_DELAY_US);
   #elif USE_ADAFRUIT_NEOPIXEL
     LED_OBJ.begin();
     #ifdef ADAFRUIT_TRINKET_M0
@@ -1224,6 +1297,10 @@ void loop() {
 
   #ifdef ENABLE_DEMO
     demo();
+  #endif
+
+  #ifdef USE_AVR_EV_CAPT
+    read_cmd();
   #endif
 
   // check for a command from the hilt
