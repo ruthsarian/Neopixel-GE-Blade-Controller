@@ -1,4 +1,4 @@
-/* Galaxy's Edge Lightsaber Compatible Neopixel Blade Controller : v2.4
+/* Galaxy's Edge Lightsaber Compatible Neopixel Blade Controller : v2.5
  * code by ruthsarian@gmail.com
  *
  * ABOUT
@@ -85,13 +85,12 @@
  *    4 = PB5 = PIN 9
  *
  * // defines I use with my top secret custom blade project
- * #define ADAFRUIT_LED_TYPE       NEO_RGB+NEO_KHZ800
- * #define NUM_LEDS                61
+ * #define ADAFRUIT_LED_TYPE       NEO_RGB
+ * #define NUM_LEDS                79
  * #define MAX_BRIGHTNESS          160
  * #define HILT_DATA_PIN           PIN_PC3
  * #define LED_DATA_PIN            PIN_PA2
  * #define LED_PWR_SWITCH_PIN      PIN_PA5
- * #define LED_PWR_ON              2 
  * #define LATCH_DELAY_US          280
  *
  * // default defines that this code ships with
@@ -99,11 +98,9 @@
  * #define NUM_LEDS                144
  * #define MAX_BRIGHTNESS          64
  * #define HILT_DATA_PIN           2
- * #define LED_DATA_PIN            4
+ * #define LED_DATA_PIN            4                      // trinket M0 supports DMA on pin 4, see https://learn.adafruit.com/dma-driven-neopixels
  * #define LED_PWR_SWITCH_PIN      0
- * #define LED_PWR_ON              1 
  * #define LATCH_DELAY_US          50
- *
  */
 
 //
@@ -192,8 +189,8 @@
     Adafruit_NeoPixel LED_OBJ = Adafruit_NeoPixel(NUM_LEDS, LED_DATA_PIN, ADAFRUIT_LED_TYPE);
 
     // Adafruit_NeoPixel halts the millis() counter while executing; this slows ignition and extinguish considerably.
-    // Use this value to compensate for the lost millis() time. 
-    #define ADAFRUIT_ADJUST   (TARGET_MAX >> 4)
+    // Use this value to compensate for the lost millis() time. This assuming 30 microseconds per LED.
+    #define ADAFRUIT_ADJUST   ((TARGET_MAX * 30) / 1000)
 
     // Trinket M0 users also need the Adafruit DotStar library in order to turn off the on-board
     // DotStart LED (thus saving a few mA of power consumption)
@@ -510,6 +507,7 @@ void blade_manager() {
   static state_t last_state = BLADE_UNINITIALIZED;
   static uint8_t wheel_index = 0;
   uint16_t target;
+  bool update_blade = false;
 
   //
   // ** BLADE MANAGER STAGE ONE : NEW STATE INITIALIZATION **
@@ -640,6 +638,7 @@ void blade_manager() {
 
         // set the brightness for the blade
         LED_OBJ.setBrightness(MAX_BRIGHTNESS);
+        update_blade = true;
 
         // delay ignition based on whatever value is stored in the lightsaber's properties
         next_step = millis();
@@ -690,6 +689,7 @@ void blade_manager() {
 
         // immediately set the blade to the clash color
         LED_FILL(blade.color_clash);
+        update_blade = true;
 
         // wait 40 milliseconds and then change the blade color back to normal
         next_step = millis() + 40;
@@ -731,6 +731,7 @@ void blade_manager() {
 
         // set brightness to max
         LED_OBJ.setBrightness(MAX_BRIGHTNESS);
+        update_blade = true;
 
         // change state to on
         blade.state = BLADE_ON;
@@ -743,6 +744,7 @@ void blade_manager() {
         #endif
 
         LED_OBJ.setBrightness((uint8_t)(((float)(blade.cmd & 0x0F)/0x0F) * (MAX_BRIGHTNESS >> 1)));
+        update_blade = true;
         next_step = millis() + 40;
         break;
 
@@ -753,15 +755,13 @@ void blade_manager() {
         #endif
 
         LED_OBJ.setBrightness((uint8_t)((1 + (float)(blade.cmd & 0x0F)/0x0F) * (MAX_BRIGHTNESS >> 1)));
+        update_blade = true;
         next_step = millis() + 40;
         break;
 
       default:
         break;
     }
-
-    // update the LED strip with any changes
-    SHOW_LEDS();
   }
 
   //
@@ -778,20 +778,14 @@ void blade_manager() {
       // animate the blade igniting by turning on 1 LED at a time
       case BLADE_IGNITING:
 
-        // if using the Adafruit NeoPixel library, adjust next_step to take into account the time lost
-        // due to the library blocking the increment of millis() during its operations
-        #ifdef ADAFRUIT_ADJUST
-          next_step -= ADAFRUIT_ADJUST;
-        #endif
-
-        // next_step contains the timestamp when the blade began ignition
-        //
         // calculate how much time has elapsed since ignition began and calculate how many LEDs should
         // be ignited at this point.
         if ((next_step + TIME_DECODE(blade.lightsaber->ignition_time)) <= millis()) {
           target = TARGET_MAX;
         } else {
-          target = ceil(((millis() - next_step)/(float)(TIME_DECODE(blade.lightsaber->ignition_time))) * NUM_LEDS);
+
+          // calculate how many LEDs should be ON at this point in the ignition sequence
+          target = ((millis() - next_step) * TARGET_MAX) / TIME_DECODE(blade.lightsaber->ignition_time);
 
           // do not allow target to go above TARGET_MAX
           if (target > TARGET_MAX) {
@@ -799,45 +793,40 @@ void blade_manager() {
           }
         }
 
-        // ignite the blade
+        if (animate_step < target) {
+          update_blade = true;
 
-        // if the LED_FILL_N macro exists (Adafruit NeoPixel) use that to help speed things up
-        // by filling multiple pixels in one step rather than incrementing through each pixel
-        // individually using LED_SET_PIXEL
-        #ifdef LED_FILL_N
+          // if the LED_FILL_N macro exists (Adafruit NeoPixel) use that to help speed things up
+          // by filling multiple pixels in one step rather than incrementing through each pixel
+          // individually using LED_SET_PIXEL
+          #ifdef LED_FILL_N
 
-          // the fill command, if given a count value of 0, will fill the entire blade
-          // so make sure we have at least 1 LED to fill before using that fill command
-          if ((target - animate_step) > 0) {
-            //LED_FILL_N(blade.color, animate_step, target - animate_step);
-            LED_SET_PIXEL(animate_step++, blade.color);
+            // the fill command, if given a count value of 0, will fill the entire blade
+            // so make sure we have at least 1 LED to fill before using that fill command
+            if ((target - animate_step) > 0) {
+              LED_FILL_N(blade.color, animate_step, target - animate_step);
 
-            // if using MIRROR_MODE, start ignting from the end of the stip towards the center
-            #ifdef MIRROR_MODE
-              LED_FILL_N(blade.color, NUM_LEDS - target, target - animate_step);
-            #endif
+              // if using MIRROR_MODE, start ignting from the end of the stip towards the center
+              #ifdef MIRROR_MODE
+                LED_FILL_N(blade.color, NUM_LEDS - target, target - animate_step);
+              #endif
 
-            // update animate_step
-            animate_step = target;
+              // update animate_step
+              animate_step = target;
+            }
+          #else
 
-            // it seems that very short strands need this little delay 
-            // when using tinyNeoPixel. i do not know why, but without it
-            // the ignition and extinguish animations do not work.
-            #ifdef MEGATINYCORE
-              delayMicroseconds(100);
-            #endif
-          }
-        #else
+            // increment through each pixel in this block and set its color
+            while (animate_step < target) {
+              LED_SET_PIXEL(animate_step, blade.color);
 
-          // increment through each pixel in this block and set its color
-          for (;animate_step < target;animate_step++) {
-            LED_SET_PIXEL(animate_step, blade.color);
-
-            #ifdef MIRROR_MODE
-              LED_SET_PIXEL((NUM_LEDS - 1) - animate_step, blade.color);
-            #endif
-          }
-        #endif
+              #ifdef MIRROR_MODE
+                LED_SET_PIXEL((NUM_LEDS - 1) - animate_step, blade.color);
+              #endif
+              animate_step++;
+            }
+          #endif
+        }
 
         // have we reached the end of the strip of LEDs?
         if (target >= TARGET_MAX) {
@@ -871,46 +860,40 @@ void blade_manager() {
       // animate the blade extinguishing by turning off 1 LED at a time
       case BLADE_EXTINGUISHING:
 
-        #ifdef ADAFRUIT_ADJUST
-          next_step -= ADAFRUIT_ADJUST;
-        #endif
-
         // how many LEDs should be extinguished at this point in time?
         if ((next_step + TIME_DECODE(blade.lightsaber->extinguish_time)) <= millis()) {
           target = TARGET_MAX;
         } else {
-          target = ceil(((millis() - next_step)/(float)(TIME_DECODE(blade.lightsaber->extinguish_time))) * NUM_LEDS);
+          target = ((millis() - next_step) * TARGET_MAX) / TIME_DECODE(blade.lightsaber->extinguish_time);
           if (target > TARGET_MAX) {
               target = TARGET_MAX;
           }
         }
 
-        #ifdef LED_FILL_N
-          if ((target - animate_step) > 0) {
-            #ifdef MIRROR_MODE
-              LED_FILL_N(RGB_BLADE_OFF, TARGET_MAX - target, target * 2);
-            #else
-              LED_FILL_N(RGB_BLADE_OFF, NUM_LEDS - target, target - animate_step);
-            #endif
+        // are there LEDs to turn off at this time?
+        if (animate_step < target) {
 
-            animate_step = target;
-
-            #ifdef MEGATINYCORE
-              delayMicroseconds(100);
-            #endif
-          }
-        #else
-
-          // extinguish those LEDs
-          for (;animate_step < target;animate_step++) {
-            #ifdef MIRROR_MODE
-              LED_SET_PIXEL(TARGET_MAX + animate_step, RGB_BLADE_OFF);
+          // extinguish the LEDs
+          update_blade = true;
+          #ifdef LED_FILL_N
+            if ((target - animate_step) > 0) {
+              #ifdef MIRROR_MODE
+                LED_FILL_N(RGB_BLADE_OFF, TARGET_MAX - target, target * 2);
+              #else
+                LED_FILL_N(RGB_BLADE_OFF, NUM_LEDS - target, target - animate_step);
+              #endif
+              animate_step = target;
+            }
+          #else
+            while (animate_step < target) {
               LED_SET_PIXEL(TARGET_MAX - animate_step, RGB_BLADE_OFF);
-            #else
-              LED_SET_PIXEL((NUM_LEDS - 1) - animate_step, RGB_BLADE_OFF);
-            #endif
-          }
-        #endif
+              #ifdef MIRROR_MODE
+                LED_SET_PIXEL(TARGET_MAX + animate_step, RGB_BLADE_OFF);
+              #endif
+              animate_step++;
+            }
+          #endif
+        }
 
         if (animate_step >= TARGET_MAX) {
           next_step = 0;
@@ -922,6 +905,7 @@ void blade_manager() {
       case BLADE_FLICKER_LOW:
       case BLADE_FLICKER_HIGH:
         LED_OBJ.setBrightness((uint8_t)((float)LED_OBJ.getBrightness() * .8));
+        update_blade = true;
         next_step = 0;
         blade.state = BLADE_IDLE;
         break;
@@ -988,6 +972,7 @@ void blade_manager() {
             // set the new color by wheel
             blade.color = color_by_wheel(wheel_index);
             LED_FILL(blade.color);
+            update_blade = true;
             next_step = millis() + COLOR_WHEEL_PAUSE_TIME;
             break;
 
@@ -1000,8 +985,26 @@ void blade_manager() {
         break;
     }
 
-    // update the LED strip with any changes
-    // this is not called at the base of this function in order to reduce overhead caused by needlessly sending data out to the strip
+  }
+
+  // update the LED strip with any changes
+  if (update_blade) {
+
+    // next_step contains the timestamp, in milliseconds, when the blade began ignition
+    //
+    // if using the Adafruit NeoPixel library, adjust next_step to take into account the time lost
+    // due to the library blocking the increment of millis() during its operations
+    #ifdef ADAFRUIT_ADJUST
+      switch (blade.state) {
+          case BLADE_IGNITING:
+          case BLADE_EXTINGUISHING: 
+            next_step -= ADAFRUIT_ADJUST;
+            break;
+          default:
+            break;
+      }
+    #endif
+
     SHOW_LEDS();
   }
 }
@@ -1169,6 +1172,8 @@ void read_cmd() {
 
   } else {
 
+
+// TODO: separate dont_show out from USE_AVR_EV_CAPT
 #ifdef USE_AVR_EV_CAPT
       // reset if we have a partial command and more than 4 times a valid bit cutoff period have passed
       if (dont_show && micros() - last_change > VALID_BIT_CUTOFF * 4) {
