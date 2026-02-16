@@ -38,10 +38,10 @@
 #define FASTLED_LED_TYPE        WS2812B // define the type of LED used with the FastLED library
                                         // if you are NOT using the FastLED library then you can ignore this
                                         // see: https://github.com/FastLED/FastLED/blob/master/src/FastLED.h
-#define FASTLED_RGB_ORDER       RGB     // the color order for the LEDs
+#define FASTLED_RGB_ORDER       GRB     // the color order for the LEDs
                                         // if you are NOT using the FastLED library then you can ignore this
-#define NUM_LEDS                40     // number of LEDs in the strip
-#define MAX_BRIGHTNESS          16      // default brightness; lower value = lower current draw
+#define NUM_LEDS                144     // number of LEDs in the strip
+#define MAX_BRIGHTNESS          64      // default brightness; lower value = lower current draw
 #define HILT_DATA_PIN           2       // digital pin the hilt's data line is connected to
 #define LED_DATA_PIN            4       // digital pin the LED strip is attached to
 #define LED_PWR_SWITCH_PIN      0       // this pin is held low until the blade turns on, at which point it will be pushed high
@@ -57,7 +57,7 @@
                                         // sleep will also stop the COM port of your microcontroller from appearing on your computer
                                         // set this as a large value while doing development, then lower it to 60000 or less for a
                                         // 'production' environment.
-#define SERIAL_DEBUG_ENABLE           // enable debug messages over serial
+//#define SERIAL_DEBUG_ENABLE           // enable debug messages over serial
 #define VALID_BIT_CUTOFF_IN_US  4000    // any HIGH period on the data line longer than this value, in microseconds, is considered an invalid bit of data and causes a reset of the data capture
 #define VALID_BIT_ONE_IN_US     1600    // any HIGH period longer than this value, in microseconds, but less than VALID_BIT_CUTOFF is treated as a valid 1 bit
                                         // any HIGH period shorter than this value, in microseconds, is treated as a valid 0 bit
@@ -68,7 +68,7 @@
 #define COLOR_WHEEL_PAUSE_TIME  2000    // how long to hold a color before moving to the next color
 #define COLOR_WHEEL_CYCLE_STEP  16      // how many steps to jump when calculating the next color in the color cycle; a power of 2 is recommended
 //#define USE_ADAFRUIT_NEOPIXEL         // uncomment to use the Adafruit NeoPixel library instead of FastLED
-#define ENABLE_DEMO                   // define this to enable a demo program which will run instead of reading commands from the hilt.
+//#define ENABLE_DEMO                   // define this to enable a demo program which will run instead of reading commands from the hilt.
                                         // i use this to test the blade without having to connect it to a hilt, just need to provide power and ground to the blade
 #define LATCH_DELAY_US          50      // define the length of delay, in microseconds, your RGB LEDs need in order to latch; default is 50 but mine need 280
                                         // used only with tinyNeoPixel (for now)
