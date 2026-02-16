@@ -1,2 +1,3 @@
+.gitignore
+/notes
 notes.txt
-/refactor_skeleton
