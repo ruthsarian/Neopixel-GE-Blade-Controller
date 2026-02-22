@@ -24,6 +24,10 @@ void blade_manager() {
   bool update_blade = false;
 
   //
+  // TODO: DONT_SHOW mod, make update_blade static and unset it if SHOW_LEDS() is called successfully.
+  //
+
+  //
   // ** BLADE MANAGER STAGE ZERO : CHECK FOR AND PROCESS INCOMING COMMAND **
   //
   // hilt_cmd is a global variable that is populated with a non-zero value when a new command
@@ -334,16 +338,6 @@ void blade_manager() {
      */
 
 
-
-
-
-
-
-
-
-
-
-
     switch (blade.state) {
 
       // animate the blade igniting by turning on 1 LED at a time
@@ -444,20 +438,36 @@ void blade_manager() {
         // are there LEDs to turn off at this time?
         if (animate_step < target) {
 
-          // extinguish the LEDs
+          // target = how many LEDs in total should be off
+          // aniamte_step = how many LEDs have already been turned off
+          //
+          // target - animate_step = how many LEDs we need to turn off this time
+
+          // since target - animate > 0 we can assume the blade will need updating as we're turning off LEDs
           update_blade = true;
+
+          // LED_FILL_N is only in Adafruit library; shame, it's a useful function.
           #ifdef LED_FILL_N
             if ((target - animate_step) > 0) {
+
+              // MIRROR_MODE means the strip of pixels is folded back on itself to make up the blade.
               #ifdef MIRROR_MODE
+                // in mirror mode, find the middle, subtract how many LEDs to turn off, then double how many we turn off to clear the middle of the LED strip
                 LED_FILL_N(RGB_BLADE_OFF, TARGET_MAX - target, target * 2);
               #else
+                // otherwise, count back from the tip how many LEDs we need to turn off
+                // we can say only turn off target - animate_step here because everything closer to the tip should already be off
+                // maybe this saves a few cycles, but we don't have such savings in mirror mode
+                // would it be more readable to not use this little trick?
                 LED_FILL_N(RGB_BLADE_OFF, NUM_LEDS - target, target - animate_step);
               #endif
               animate_step = target;
             }
+
+          // without LED_FILL_N we'll just turn them off one pixel at a time
           #else
             while (animate_step < target) {
-              LED_SET_PIXEL(TARGET_MAX - animate_step, RGB_BLADE_OFF);
+              LED_SET_PIXEL(TARGET_MAX - (animate_step + 1), RGB_BLADE_OFF);    // it took me far far too long to realize i needed +1 here
               #ifdef MIRROR_MODE
                 LED_SET_PIXEL(TARGET_MAX + animate_step, RGB_BLADE_OFF);
               #endif
@@ -485,7 +495,10 @@ void blade_manager() {
       case BLADE_OFF:
 
         // put the blade to sleep to convserve power
-        hardware_sleep();
+        // don't do that if we're debugging as some devices will drop the serial connection
+        #ifndef SERIAL_DEBUG_ENABLE
+          hardware_sleep();
+        #endif
 
         // after waking up, reset sleep timer in case blade never leaves the off state
         next_step = millis() + SLEEP_AFTER;
@@ -636,4 +649,8 @@ void blade_process_command() {
 void blade_setup() {
   // start the blade in an OFF state
   blade.state = BLADE_OFF;
+
+  // set initial blade effects to stock
+  blade.current_color_effect = 0;
+  blade.current_brightness_effect = 0;
 }

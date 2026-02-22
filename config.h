@@ -1,7 +1,9 @@
 /* config.h
+ * This is where you can configure the code to work with the specific hardware of your blade.
+ * Each of hte various #define statements below include comments explaining what they do to
+ * help you in determining what the correct value for that define shoudl be for your blade.
  *
- *
- * // defines I use with my top secret custom blade project
+ * // defines I use with my custom neopixel blade project
  * #define ADAFRUIT_LED_TYPE       NEO_RGB
  * #define NUM_LEDS                79
  * #define MAX_BRIGHTNESS          160
@@ -38,7 +40,7 @@
 #define FASTLED_LED_TYPE        WS2812B // define the type of LED used with the FastLED library
                                         // if you are NOT using the FastLED library then you can ignore this
                                         // see: https://github.com/FastLED/FastLED/blob/master/src/FastLED.h
-#define FASTLED_RGB_ORDER       GRB     // the color order for the LEDs
+#define FASTLED_RGB_ORDER       RGB     // the color order for the LEDs
                                         // if you are NOT using the FastLED library then you can ignore this
 #define NUM_LEDS                144     // number of LEDs in the strip
 #define MAX_BRIGHTNESS          64      // default brightness; lower value = lower current draw
@@ -58,12 +60,12 @@
                                         // set this as a large value while doing development, then lower it to 60000 or less for a
                                         // 'production' environment.
 //#define SERIAL_DEBUG_ENABLE           // enable debug messages over serial
-#define VALID_BIT_CUTOFF_IN_US  4000    // any HIGH period on the data line longer than this value, in microseconds, is considered an invalid bit of data and causes a reset of the data capture
-#define VALID_BIT_ONE_IN_US     1600    // any HIGH period longer than this value, in microseconds, but less than VALID_BIT_CUTOFF is treated as a valid 1 bit
-                                        // any HIGH period shorter than this value, in microseconds, is treated as a valid 0 bit
-                                        // if blade is not registering commands correctly, this value likely needs to be tweaked
-                                        // typically a 1 bit is about 2000uS (Legacy) or 2400uS (Savi) long and a 0 is 1200uS long. 
-                                        // this value is set between 2000 and 1200 to accomadate delays in timing/processing
+#define USE_DONT_SHOW                   // uncomment to enable DONT_SHOW; this blocks calls to update the LED string while a command is being read in from the hilt.
+                                        // without this you risk, especially on slower microcontrollers, missing commands from the hilt.
+                                        // i don't think there's any reason to disable this and I may remove this define and make DONT_SHOW permanent in the future.
+#define VALID_BIT_CUTOFF_IN_US  3750    // any bit period on the data line longer than this value, in microseconds, is considered an invalid bit of data and causes a reset of the data capture
+#define VALID_BIT_SPLIT_IN_US   1875    // any bit period longer than this value, in microseconds, but less than VALID_BIT_CUTOFF is treated as a valid 0 bit
+                                        // any bit period shorter than this value, in microseconds, is treated as a valid 1 bit
 #define COLOR_MODE_CHANGE_TIME  1500    // if a blade is turned off then on again within this amount of time, then change to the next color mode
 #define COLOR_WHEEL_PAUSE_TIME  2000    // how long to hold a color before moving to the next color
 #define COLOR_WHEEL_CYCLE_STEP  16      // how many steps to jump when calculating the next color in the color cycle; a power of 2 is recommended

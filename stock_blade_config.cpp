@@ -1,4 +1,12 @@
 /* stock_blade_config.cpp
+ *
+ * these timing values were determined from data recorded by a logic analyzer. 
+ * they may not be exact, but are pretty close.
+ *
+ * we care about the ignition and extinguish times because we need our ignition
+ * and extinguish animation effects to match with what the hilt expects. otherwise
+ * the animations may not align with the hilt's sound effects.
+ *
  */
 #include "stock_blade_config.h"
 #include "blade_color_table.h"

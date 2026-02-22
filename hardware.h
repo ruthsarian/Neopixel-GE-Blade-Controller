@@ -1,14 +1,14 @@
 /* hardware.h
+ * Setup and management of the LED and MCU hardware.
  *
- * LED LIBRARIES (FastLED, tinyNeoPixel, Adafruit NeoPixel)
+ * LED LIBRARIES (FastLED, tinyNeoPixel, Adafruit NeoPixel, Adafruit DotStar)
  *   my preferred LED library is FastLED.
+ *
+ *   if using Adafruit NeoPixel, be sure to also install the Adafruit DotStar library.
  *
  *   megaTinyCore does not support FastLED, however it does come with its own version of
  *   the Adafruit NeoPixel library
  *   see: https://github.com/SpenceKonde/megaTinyCore/tree/master/megaavr/libraries/tinyNeoPixel
- *
- *   since i'm adding support for tinyNeoPixel, I might as well add Adafruit NeoPixel
- *   support since they share the same API.
  */
 #pragma once
 
@@ -69,7 +69,7 @@
   extern LED_RGB_TYPE leds[];     // blade LEDs
 #endif
 
-// for tinyAVR MCUs (using megaTinyCore) we're going to not use interrupts to detect data from the hilt
+// for tinyAVR MCUs (using megaTinyCore) we're going to not use interrupts to detect data from the hilt.
 // instead we'll use the event system and timer B to capture how long each data pulse was HIGH.
 //
 // this is done because the show() command disables interrupts which causes state changes on the hilt
@@ -81,16 +81,13 @@
 #if defined(MEGATINYCORE) && defined(TCB0) && defined(EVSYS)
   #warning "Using AVR tricks to read commands from hilt. NO WARRANTY!"
 
-  // use this to identify whether or not to use this approach
+  // identify that we're using the AVR event system timer to capture data rather than interrupts.
   #define USE_AVR_EV_CAPT
-
-  // make use of the DONT_SHOW feature
-  #define USE_DONT_SHOW
 
   // translate bit timings from microseconds to clock ticks
   #define TCB0_TICKS_FROM_US(us, clk_div)   ((uint32_t)((us) * (F_CPU / (1000000UL * (clk_div)))))
   #define VALID_BIT_CUTOFF_IN_TICKS         TCB0_TICKS_FROM_US(VALID_BIT_CUTOFF_IN_US, 2)
-  #define VALID_BIT_ONE_IN_TICKS            TCB0_TICKS_FROM_US(VALID_BIT_ONE_IN_US,    2)
+  #define VALID_BIT_SPLIT_IN_TICKS          TCB0_TICKS_FROM_US(VALID_BIT_SPLIT_IN_US,  2)
 #endif
 
 // DONT_SHOW
@@ -138,10 +135,11 @@
 // help save program space
 #ifdef SPACE_SAVER
 
-  // remove all uses of Serial() as it requires a good chunk of program space
+  // remove all uses of Serial() as it requires a good chunk of program space.
   #undef SERIAL_DEBUG_ENABLE
 #endif
 
+// function prototypes
 void led_power_off();
 void led_power_on();
 void harware_setup();

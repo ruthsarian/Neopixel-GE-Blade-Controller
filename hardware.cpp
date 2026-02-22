@@ -29,7 +29,7 @@
 // switch off power to the LEDs
 void led_power_off() {
   #ifdef SERIAL_DEBUG_ENABLE
-    Serial.println(F("led_power_off()"));
+    //Serial.println(F("led_power_off()"));
   #endif
   switch(LED_PWR_ON) {
     case 0:
@@ -59,7 +59,7 @@ void led_power_off() {
 // switch on power to the LEDs
 void led_power_on() {
   #ifdef SERIAL_DEBUG_ENABLE
-    Serial.println(F("led_power_on()"));
+    //Serial.println(F("led_power_on()"));
   #endif
   switch(LED_PWR_ON) {
     case 2:

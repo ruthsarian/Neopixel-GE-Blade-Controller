@@ -4,7 +4,7 @@ This is an Arduino IDE sketch for custom lightsaber blades that are compatible w
 This code emulates a stock lightsaber blade behavior with the addition of supporting orange and cyan colors if an appropriate crystal is used with a Savi's Workshop hilt. Ignition timings set by this code mirror the timings of stock blades in order to match the audio cues from the hilt. This is why some colors ignite faster than others.
 
 ## Setup
-There are several `#define` statements near the top of the source code. Review their values and associated comments and adjust values as needed.
+There are several `#define` statements in `config.h`. These define the custom blade setup. Review their values and associated comments and adjust values as needed.
 
 For example, the value of `NUM_LEDS` should match the number of LEDs in your blade. You will likely need to adjust this value. If you're using a single strip of LEDs for both sides of the blade, you'll want to uncommon `#define MIRROR_MODE`. And if you're using a type of LED other than WS2812B in GRB then you'll also want to look at the `_LED_TYPE` defines as well.
 

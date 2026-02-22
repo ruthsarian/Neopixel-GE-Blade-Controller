@@ -1,4 +1,4 @@
-/* Galaxy's Edge Lightsaber Compatible NeoPixel Blade Controller : v2.5
+/* Galaxy's Edge Lightsaber Compatible NeoPixel Blade Controller : v2.6.IN.LIMBO
  * code by ruthsarian@gmail.com
  *
  * ABOUT
@@ -63,7 +63,7 @@
  *    - NeoPixels (WS2812B)
  *      ; consume about 1mA per pixel while off; 91mA w/144 pixels
  *      ; at max brightness (255), 144 pixels consume about 1.3A
- *      ; at my brightness (64), 144 pixels consume about 500mA
+ *      ; at lower brightness (64), 144 pixels consume about 500mA
  *
  *  ATTinyX06 / tinyNeoPixel Limitations
  *    Limited memory of the ATTinyX06s cause longer strands of LEDs to not ignite.
@@ -97,11 +97,12 @@ void setup() {
   harware_setup();
   cmd_capture_setup();
   blade_setup();
-
   delay(100);
 
   // serial output for debug purposes
   #ifdef SERIAL_DEBUG_ENABLE
+    Serial.begin(115200);
+    delay(1000);
     Serial.println(F("Ready!"));
   #endif
 }
@@ -109,11 +110,10 @@ void setup() {
 // loop() is the main proram loop
 void loop() {
 
+  // get commands from the demo
   #ifdef ENABLE_DEMO
     cmd_demo();
-  #endif
-
-  #ifdef USE_AVR_EV_CAPT
+  #else
     read_cmd();
   #endif
 

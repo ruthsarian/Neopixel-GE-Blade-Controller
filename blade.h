@@ -18,7 +18,7 @@ typedef enum {
   BLADE_FLICKER_HIGH
 } blade_state_t;
 
-// color mode
+// color mode -- DELETE ME LATER
 typedef enum {
   COLOR_MODE_STOCK,
   COLOR_MODE_WHEEL_CYCLE,
@@ -32,9 +32,11 @@ typedef struct {
   blade_state_t state;
   uint8_t cmd;
   const stock_lightsaber_t *lightsaber;
-  blade_color_mode_t color_mode;
   LED_RGB_TYPE color;
   LED_RGB_TYPE color_clash;
+  uint8_t current_color_effect;
+  uint8_t current_brightness_effect;
+  blade_color_mode_t color_mode;        // DELETE ME LATER
 } blade_t;
 
 void blade_setup();
