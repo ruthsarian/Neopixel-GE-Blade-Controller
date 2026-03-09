@@ -93,16 +93,23 @@
 
 // setup() performs one-time initialization steps
 void setup() {
+  hardware_setup();
 
-  harware_setup();
+  // don't call Serial.begin() before hardware_setup()
+  #ifdef SERIAL_DEBUG_ENABLE
+    Serial.begin(115200);
+    delay(2000);
+    Serial.println(F("\n\nStarting..."));
+  #endif
+
   cmd_capture_setup();
   blade_setup();
   delay(100);
 
-  // serial output for debug purposes
   #ifdef SERIAL_DEBUG_ENABLE
-    Serial.begin(115200);
-    delay(1000);
+    #ifdef USE_DONT_SHOW
+      Serial.println(F("  USE_DONT_SHOW enabled!"));
+    #endif
     Serial.println(F("Ready!"));
   #endif
 }

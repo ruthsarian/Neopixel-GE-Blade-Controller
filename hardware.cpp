@@ -76,8 +76,7 @@ void led_power_on() {
 }
 
 // setup the hardware for the device
-void harware_setup() {
-
+void hardware_setup() {
   // setup AVR microcontrollers
   #if defined(ARDUINO_ARCH_AVR) || defined(ARDUINO_ARCH_MEGAAVR)
 
@@ -130,12 +129,7 @@ void harware_setup() {
     FastLED.addLeds<FASTLED_LED_TYPE, LED_DATA_PIN, FASTLED_RGB_ORDER>(leds, NUM_LEDS);
   #endif
   LED_OBJ.clear();
-  SHOW_LEDS();
-  
-  // serial output for debug purposes
-  #ifdef SERIAL_DEBUG_ENABLE
-    Serial.begin(115200);
-  #endif
+  SHOW_LEDS(); 
 }
 
 // empty ISR to call when waking from sleep

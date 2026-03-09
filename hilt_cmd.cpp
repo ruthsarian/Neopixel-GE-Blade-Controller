@@ -10,9 +10,9 @@
  *
  * read_cmd() then picks up the pulse length values and interprets them as commands.
  */
-#include "hilt_cmd.h"
 #include "config.h"
 #include "hardware.h"
+#include "hilt_cmd.h"
 
 // global variable where decoded hilt command is stored
 uint8_t hilt_cmd = 0;
@@ -175,19 +175,28 @@ void cmd_capture_setup() {
   // setup DATA pin for hilt
   pinMode(HILT_DATA_PIN, INPUT_PULLUP);
 
+  // https://github.com/SpenceKonde/megaTinyCore/blob/master/megaavr/extras/ioheaders/README.md
+  // %LOCALAPPDATA%\Arduino15\packages\DxCore\tools\avr-gcc\7.3.0-atmel3.6.1-azduino7b1\avr\include\avr\iotn1606.h
+
   // setup event system and timer for hilt data capture
   #ifdef USE_AVR_EV_CAPT
-    EVSYS.SYNCCH0 = 0x0A;           // set PC3 as generator for syncrhonous channel
-    EVSYS.ASYNCUSER0 = 0x01;        // set TCB0 as a user of synchronous channel
+    EVSYS.SYNCCH0 = EVSYS_SYNCCH0_PORTC_PIN3_gc;      // set PC3 as generator for syncrhonous channel 0
+    EVSYS.ASYNCUSER0 = EVSYS_ASYNCUSER0_SYNCCH0_gc;   // set TCB0 as a user of synchronous channel 0
 
     TCB0.EVCTRL = TCB_FILTER_bm     // enable noise filter
                 | TCB_CAPTEI_bm     // enable event input capture
                 | TCB_EDGE_bm;      // counter starts on falling edge, capture and interrupt on rising edge (idle HIGH)
 
-    TCB0.CTRLB = TCB_CNTMODE2_bm;   // set input capture mode to pulse-width measurement
+    TCB0.CTRLB = TCB_CNTMODE_PW_gc;  // set input capture mode to pulse-width measurement
 
-    TCB0.CTRLA = TCB_CLKSEL0_bm     // enable prescaler (CLK_PER/2), gives us more time to capture events
-              | TCB_ENABLE_bm;      // enable TCB0
+    TCB0.INTCTRL |= TCB_CAPT_bm;
+
+    TCB0.CTRLA = TCB_CLKSEL_CLKDIV2_gc    // enable prescaler (CLK_PER/2), gives us more time to capture events
+               | TCB_ENABLE_bm;            // enable TCB0
+
+    #ifdef SERIAL_DEBUG_ENABLE
+      Serial.println(F("  USE_AVR_EV_CAPT is enabled"));
+    #endif
 
   // SAMD boards like the Trinket M0 need the ArduinoLowPower library to attach the interrupt to ensure the board wakes from sleep
   #elif defined(ARDUINO_ARCH_SAMD)
@@ -195,6 +204,9 @@ void cmd_capture_setup() {
 
   // for all other Arduino boards
   #else
+    #ifdef SERIAL_DEBUG_ENABLE
+      Serial.println(F("  Attaching hilt data interrupt."));
+    #endif  
     attachInterrupt(digitalPinToInterrupt(HILT_DATA_PIN), data_pin_interrupt, CHANGE);
   #endif
 }

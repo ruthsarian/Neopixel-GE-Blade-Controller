@@ -142,5 +142,5 @@
 // function prototypes
 void led_power_off();
 void led_power_on();
-void harware_setup();
+void hardware_setup();
 void hardware_sleep();
