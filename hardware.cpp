@@ -129,13 +129,8 @@ void hardware_setup() {
     FastLED.addLeds<FASTLED_LED_TYPE, LED_DATA_PIN, FASTLED_RGB_ORDER>(leds, NUM_LEDS);
   #endif
   LED_OBJ.clear();
-  SHOW_LEDS(); 
+  SHOW_LEDS();
 }
-
-// empty ISR to call when waking from sleep
-#ifdef USE_AVR_EV_CAPT
-  void wakeISR() { }
-#endif
 
 // put the hardware to sleep
 void hardware_sleep() {
@@ -152,16 +147,7 @@ void hardware_sleep() {
       power_all_disable();
     #endif
 
-    // if not already using an interrupt, i have to attach an interrupt so the mcu wakes up
-    #ifdef USE_AVR_EV_CAPT
-      attachInterrupt(digitalPinToInterrupt(HILT_DATA_PIN), wakeISR, CHANGE);
-    #endif  
-
     sleep_cpu();                  // put the MCU to sleep
-
-    #ifdef USE_AVR_EV_CAPT
-      detachInterrupt(digitalPinToInterrupt(HILT_DATA_PIN));
-    #endif
 
     #ifndef ARDUINO_ARCH_MEGAAVR
       power_all_enable();

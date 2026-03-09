@@ -28,6 +28,14 @@ volatile uint32_t cmd_pulse_period = 0;
   ISR(TCB0_INT_vect) {
     cmd_pulse_period = TCB0.CCMP; // reading CCMP should also clear the interrupt flag
   }
+
+  // empty ISR to call when waking from sleep
+  // this is needed because if we don't attach an interrupt to HILT_DATA_PIN the blade
+  // won't wake up from sleep.
+  //
+  // nope, this USE_AVR_EV_CAPT business is NOT attaching an interrupt to a pin, it's 
+  // an interrupt attached to the timber TCB0
+  void wakeISR() { }
 #else
   void data_pin_interrupt() {
     static uint32_t last_change = 0;
@@ -183,16 +191,20 @@ void cmd_capture_setup() {
     EVSYS.SYNCCH0 = EVSYS_SYNCCH0_PORTC_PIN3_gc;      // set PC3 as generator for syncrhonous channel 0
     EVSYS.ASYNCUSER0 = EVSYS_ASYNCUSER0_SYNCCH0_gc;   // set TCB0 as a user of synchronous channel 0
 
-    TCB0.EVCTRL = TCB_FILTER_bm     // enable noise filter
-                | TCB_CAPTEI_bm     // enable event input capture
-                | TCB_EDGE_bm;      // counter starts on falling edge, capture and interrupt on rising edge (idle HIGH)
+    TCB0.EVCTRL = TCB_FILTER_bm           // enable noise filter
+                | TCB_CAPTEI_bm           // enable event input capture
+                | TCB_EDGE_bm;            // counter starts on falling edge, capture and interrupt on rising edge (idle HIGH)
 
-    TCB0.CTRLB = TCB_CNTMODE_PW_gc;  // set input capture mode to pulse-width measurement
+    TCB0.CTRLB = TCB_CNTMODE_PW_gc;       // set input capture mode to pulse-width measurement
 
-    TCB0.INTCTRL |= TCB_CAPT_bm;
+    TCB0.INTCTRL |= TCB_CAPT_bm;          // enable TCB0 interrupt (TCB0_INT_vect)
 
     TCB0.CTRLA = TCB_CLKSEL_CLKDIV2_gc    // enable prescaler (CLK_PER/2), gives us more time to capture events
-               | TCB_ENABLE_bm;            // enable TCB0
+               | TCB_ENABLE_bm;           // enable TCB0
+
+
+    // empty ISR needs to be attached to the data pin in order to trigger wake up from sleep
+    attachInterrupt(digitalPinToInterrupt(HILT_DATA_PIN), wakeISR, CHANGE);
 
     #ifdef SERIAL_DEBUG_ENABLE
       Serial.println(F("  USE_AVR_EV_CAPT is enabled"));
